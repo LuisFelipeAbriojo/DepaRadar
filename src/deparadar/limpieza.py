@@ -10,8 +10,26 @@ Reglas (decididas mirando la primera corrida del 10-nov-2026):
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
+
+# Datos de contacto que algunos anunciantes ponen en el texto: no los publicamos
+_CONTACTO_RE = re.compile(
+    r"(?:\+?51[\s.-]*)?\b9\d{2}[\s.*-]?\d{3}[\s.*-]?\d{3}\b"   # celulares peruanos (9 dígitos)
+    r"|\(?\b01\)?[\s.-]?\d{3}[\s.-]?\d{4}\b"                  # fijos de Lima
+    r"|[\w.+-]+@[\w-]+\.[\w.]+"                              # correos
+    r"|(?:https?://)?(?:wa\.me|api\.whatsapp\.com)/\S+",       # enlaces de WhatsApp
+    re.I,
+)
+
+
+def anonimizar(texto) -> str:
+    """Reemplaza teléfonos, correos y enlaces de WhatsApp por [contacto]."""
+    if not isinstance(texto, str):
+        return ""
+    return _CONTACTO_RE.sub("[contacto]", texto)
 
 # Rango de área útil (m²)
 M2_MIN, M2_MAX = 20, 600
@@ -37,6 +55,9 @@ ESTADOS_PREVENTA = {"En construcción", "En Pozo"}
 
 def limpiar(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset=["id"]).copy()
+    for col in ("titulo", "descripcion"):
+        if col in df:
+            df[col] = df[col].map(anonimizar)
 
     df["area_m2"] = df["m2_construido"].where(df["m2_construido"] > 0, df["m2"])
     df = df[df["area_m2"].between(M2_MIN, M2_MAX)]
