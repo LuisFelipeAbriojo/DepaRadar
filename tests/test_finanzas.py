@@ -36,3 +36,13 @@ def test_proyeccion_coherente():
     # más alquiler -> mejor TIR
     _, mejor = proyectar(Supuestos(precio=150_000, alquiler_mensual=1000))
     assert mejor["tir"] > ind["tir"]
+
+
+def test_precio_maximo_deja_van_cero():
+    from deparadar.finanzas import precio_maximo
+
+    s = Supuestos(precio=183_500, alquiler_mensual=830)
+    p = precio_maximo(s)
+    assert p is not None and p < s.precio  # el depa mediano no cuadra: hay que negociar
+    s.precio = p
+    assert abs(proyectar(s)[1]["van"]) < 500
