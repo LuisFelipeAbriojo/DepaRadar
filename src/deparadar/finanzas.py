@@ -12,7 +12,7 @@ Supuestos peruanos (editables en la app):
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -146,3 +146,22 @@ def proyectar(s: Supuestos) -> tuple[pd.DataFrame, dict]:
                    for k, v in indicadores.items()}
     indicadores["supuestos"] = asdict(s)
     return tabla, indicadores
+
+
+def precio_maximo(s: Supuestos, tol: float = 50.0) -> float | None:
+    """Precio más alto que se puede pagar para que el VAN sea >= 0 (manteniendo el alquiler).
+
+    Sirve para negociar: "ofrece hasta X para que la inversión cuadre".
+    """
+    def van_a(precio: float) -> float:
+        return proyectar(replace(s, precio=precio))[1]["van"]
+
+    lo, hi = s.alquiler_mensual * 12 * 3, s.alquiler_mensual * 12 * 60  # rentabilidad bruta 33 % ... 1.7 %
+    if van_a(lo) < 0:
+        return None
+    if van_a(hi) >= 0:
+        return hi
+    while hi - lo > tol:
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if van_a(mid) >= 0 else (lo, mid)
+    return lo
