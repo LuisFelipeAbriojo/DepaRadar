@@ -1,4 +1,4 @@
-# (Nombre por definir)
+# DepaRadar
 
 > **One-liner (borrador):** Ayudamos a inversionistas inmobiliarios minoristas de Lima Moderna a encontrar departamentos que están por debajo de su precio de mercado y a saber, en un minuto, si el flujo de caja de alquilarlos es rentable, usando datos reales de avisos y las tasas del BCRP.
 

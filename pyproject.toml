@@ -1,5 +1,6 @@
 [project]
-name = "startup-lfav"
+name = "deparadar"
 version = "0.1.0"
+description = "Radar de departamentos bajo precio y flujo de caja de alquiler en Lima Moderna"
 requires-python = ">=3.11"
 dependencies = []
