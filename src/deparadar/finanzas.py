@@ -62,19 +62,21 @@ def saldo_deuda(principal: float, tasa_anual: float, plazo_anios: int, meses_pag
     return max(principal * (1 + i) ** k - c * ((1 + i) ** k - 1) / i, 0.0)
 
 
-def van(tasa: float, flujos: list[float]) -> float:
-    return float(sum(f / (1 + tasa) ** t for t, f in enumerate(flujos)))
+def van(tasa: float, flujos) -> float:
+    f = np.asarray(flujos, dtype=float)
+    return float(np.sum(f / (1 + tasa) ** np.arange(len(f))))
 
 
-def tir(flujos: list[float], lo: float = -0.99, hi: float = 1.0, tol: float = 1e-7) -> float | None:
+def tir(flujos, lo: float = -0.99, hi: float = 1.0, tol: float = 1e-7) -> float | None:
     """TIR por bisección. None si los flujos no cambian de signo en el rango."""
-    f_lo, f_hi = van(lo, flujos), van(hi, flujos)
+    f = np.asarray(flujos, dtype=float)
+    f_lo, f_hi = van(lo, f), van(hi, f)
     if np.sign(f_lo) == np.sign(f_hi):
         return None
-    for _ in range(200):
+    for _ in range(100):
         mid = (lo + hi) / 2
-        f_mid = van(mid, flujos)
-        if abs(f_mid) < tol:
+        f_mid = van(mid, f)
+        if abs(f_mid) < tol or hi - lo < 1e-9:
             break
         if np.sign(f_mid) == np.sign(f_lo):
             lo, f_lo = mid, f_mid
@@ -91,60 +93,68 @@ def alcabala(s: Supuestos) -> float:
     return 0.03 * base_pen / (s.tipo_cambio if s.moneda == "USD" else 1)
 
 
-def proyectar(s: Supuestos) -> tuple[pd.DataFrame, dict]:
-    """Devuelve (tabla anual de flujos, indicadores)."""
+def proyectar(s: Supuestos, con_tabla: bool = True) -> tuple[pd.DataFrame | None, dict]:
+    """Devuelve (tabla anual de flujos, indicadores).
+
+    Se calcula con arrays de numpy (rápido: el radar evalúa ~900 avisos en cada cambio
+    de supuestos); la tabla de pandas solo se arma si se pide.
+    """
+    n = s.horizonte_anios
     prestamo = s.precio * (1 - s.cuota_inicial_pct)
     cuota = cuota_mensual(prestamo, s.tasa_anual, s.plazo_anios)
     gastos_compra = s.precio * s.notaria_registros_pct + alcabala(s)
     inversion_inicial = s.precio * s.cuota_inicial_pct + gastos_compra
 
-    filas = [{"anio": 0, "alquiler_bruto": 0.0, "noi": 0.0, "servicio_deuda": 0.0,
-              "flujo_neto": -inversion_inicial, "saldo_deuda": prestamo}]
-    for t in range(1, s.horizonte_anios + 1):
-        alquiler_anual = s.alquiler_mensual * (1 + s.crecimiento_alquiler) ** (t - 1) * 12
-        ingreso = alquiler_anual * (1 - s.vacancia_meses_anio / 12)
-        gastos = (ingreso * s.ir_alquiler_pct
-                  + s.precio * (s.predial_arbitrios_pct + s.seguros_pct)
-                  + s.mantenimiento_propietario * 12)
-        noi = ingreso - gastos
-        meses_con_cuota = max(0, min(12, s.plazo_anios * 12 - (t - 1) * 12))
-        servicio = cuota * meses_con_cuota
-        flujo = noi - servicio
-        saldo = saldo_deuda(prestamo, s.tasa_anual, s.plazo_anios, min(t * 12, s.plazo_anios * 12))
-        filas.append({"anio": t, "alquiler_bruto": alquiler_anual, "noi": noi,
-                      "servicio_deuda": servicio, "flujo_neto": flujo, "saldo_deuda": saldo})
+    t = np.arange(1, n + 1)
+    alquiler_bruto = s.alquiler_mensual * (1 + s.crecimiento_alquiler) ** (t - 1) * 12
+    ingreso = alquiler_bruto * (1 - s.vacancia_meses_anio / 12)
+    gastos = (ingreso * s.ir_alquiler_pct + s.precio * (s.predial_arbitrios_pct + s.seguros_pct)
+              + s.mantenimiento_propietario * 12)
+    noi = ingreso - gastos
+    meses_con_cuota = np.clip(s.plazo_anios * 12 - (t - 1) * 12, 0, 12)
+    servicio = cuota * meses_con_cuota
+    saldo = np.array([saldo_deuda(prestamo, s.tasa_anual, s.plazo_anios, min(k * 12, s.plazo_anios * 12)) for k in t])
 
-    tabla = pd.DataFrame(filas)
-    valor_venta = s.precio * (1 + s.apreciacion_anual) ** s.horizonte_anios
+    flujo_neto = np.concatenate([[-inversion_inicial], noi - servicio])
+    valor_venta = s.precio * (1 + s.apreciacion_anual) ** n
     ganancia = max(valor_venta - s.precio, 0)
-    neto_venta = (valor_venta * (1 - s.costo_venta_pct) - ganancia * s.impuesto_ganancia_pct
-                  - tabla.iloc[-1]["saldo_deuda"])
-    tabla["venta"] = 0.0
-    tabla.loc[tabla.index[-1], "venta"] = neto_venta
-    tabla["flujo_total"] = tabla["flujo_neto"] + tabla["venta"]
+    neto_venta = valor_venta * (1 - s.costo_venta_pct) - ganancia * s.impuesto_ganancia_pct - saldo[-1]
+    venta = np.zeros(n + 1)
+    venta[-1] = neto_venta
+    flujo_total = flujo_neto + venta
 
-    flujos = tabla["flujo_total"].tolist()
-    acumulado = tabla["flujo_neto"].cumsum()
-    anio1 = tabla.iloc[1]
+    acumulado = np.cumsum(flujo_neto)
+    positivos = np.nonzero((np.arange(n + 1) > 0) & (acumulado >= 0))[0]
+    tir_ = tir(flujo_total)
     indicadores = {
-        "inversion_inicial": inversion_inicial,
-        "gastos_compra": gastos_compra,
-        "prestamo": prestamo,
-        "cuota_mensual": cuota,
-        "alquiler_neto_mensual_anio1": anio1["noi"] / 12,
-        "flujo_mensual_anio1": anio1["flujo_neto"] / 12,
-        "rentabilidad_bruta": s.alquiler_mensual * 12 / s.precio,
-        "cap_rate": anio1["noi"] / s.precio,
-        "cash_on_cash": anio1["flujo_neto"] / inversion_inicial,
-        "tir": tir(flujos),
-        "van": van(s.tasa_descuento, flujos),
-        "valor_venta": valor_venta,
-        "neto_venta": neto_venta,
-        "payback_anios": next((int(a) for a, c in zip(tabla["anio"], acumulado) if a > 0 and c >= 0), None),
+        "inversion_inicial": float(inversion_inicial),
+        "gastos_compra": float(gastos_compra),
+        "prestamo": float(prestamo),
+        "cuota_mensual": float(cuota),
+        "alquiler_neto_mensual_anio1": float(noi[0] / 12),
+        "flujo_mensual_anio1": float(flujo_neto[1] / 12),
+        "rentabilidad_bruta": float(s.alquiler_mensual * 12 / s.precio),
+        "cap_rate": float(noi[0] / s.precio),
+        "cash_on_cash": float(flujo_neto[1] / inversion_inicial),
+        "tir": None if tir_ is None else float(tir_),
+        "van": van(s.tasa_descuento, flujo_total),
+        "valor_venta": float(valor_venta),
+        "neto_venta": float(neto_venta),
+        "payback_anios": int(positivos[0]) if len(positivos) else None,
+        "supuestos": asdict(s),
     }
-    indicadores = {k: (float(v) if isinstance(v, (int, float, np.floating)) and k != "payback_anios" else v)
-                   for k, v in indicadores.items()}
-    indicadores["supuestos"] = asdict(s)
+    tabla = None
+    if con_tabla:
+        tabla = pd.DataFrame({
+            "anio": np.arange(n + 1),
+            "alquiler_bruto": np.concatenate([[0.0], alquiler_bruto]),
+            "noi": np.concatenate([[0.0], noi]),
+            "servicio_deuda": np.concatenate([[0.0], servicio]),
+            "flujo_neto": flujo_neto,
+            "saldo_deuda": np.concatenate([[prestamo], saldo]),
+            "venta": venta,
+            "flujo_total": flujo_total,
+        })
     return tabla, indicadores
 
 
@@ -154,7 +164,7 @@ def precio_maximo(s: Supuestos, tol: float = 50.0) -> float | None:
     Sirve para negociar: "ofrece hasta X para que la inversión cuadre".
     """
     def van_a(precio: float) -> float:
-        return proyectar(replace(s, precio=precio))[1]["van"]
+        return proyectar(replace(s, precio=precio), con_tabla=False)[1]["van"]
 
     lo, hi = s.alquiler_mensual * 12 * 3, s.alquiler_mensual * 12 * 60  # rentabilidad bruta 33 % ... 1.7 %
     if van_a(lo) < 0:

@@ -47,7 +47,7 @@ def rankear(venta: pd.DataFrame, base: Supuestos) -> pd.DataFrame:
     """Agrega TIR, VAN, flujo mensual y si 'cuadra' a cada aviso en venta."""
     filas = []
     for _, f in venta.iterrows():
-        _, ind = proyectar(supuestos_para(f, base))
+        _, ind = proyectar(supuestos_para(f, base), con_tabla=False)
         filas.append({
             "tir": ind["tir"],
             "van": ind["van"],

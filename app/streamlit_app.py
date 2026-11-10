@@ -7,6 +7,7 @@ Correr en local:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -21,11 +22,14 @@ import streamlit as st  # noqa: E402
 from streamlit_folium import st_folium  # noqa: E402
 
 from deparadar import bcrp  # noqa: E402
+from deparadar.agente import Herramientas, responder  # noqa: E402
 from deparadar.config import DATA_PROCESSED  # noqa: E402
 from deparadar.finanzas import Supuestos, precio_maximo, proyectar  # noqa: E402
 from deparadar.ranking import etiquetas, rankear, supuestos_para  # noqa: E402
 
 AZUL, ROJO, GRIS = "#2a78d6", "#e34948", "#9a9993"
+LIMITE_GRATIS = 3          # oportunidades visibles en el plan gratis
+PREGUNTAS_PRO_MES = 100    # tope de preguntas al agente en Pro (controla el costo por usuario)
 
 st.set_page_config(page_title="DepaRadar", page_icon="🏢", layout="wide")
 
@@ -81,6 +85,14 @@ st.caption(
 
 # ---------- barra lateral: el crédito ----------
 with st.sidebar:
+    plan = st.segmented_control("Tu plan", ["Gratis", "Pro ⭐"], default="Pro ⭐",
+                                help="Demo: el cambio de plan es simulado, no se cobra nada.")
+    es_pro = plan == "Pro ⭐"
+    if es_pro:
+        st.caption("⭐ **Pro · S/ 39/mes:** 10 distritos, oportunidades ilimitadas, precio máximo a ofrecer y analista IA.")
+    else:
+        st.caption(f"Plan gratis: 1 distrito y las {LIMITE_GRATIS} mejores oportunidades. **Pro: S/ 39/mes.**")
+    st.divider()
     st.header("Tu inversión")
     moneda = st.radio("Crédito hipotecario en", ["Dólares", "Soles"], horizontal=True)
     tasa_bcrp = ind["tasa_hipotecaria_usd" if moneda == "Dólares" else "tasa_hipotecaria_pen"]
@@ -107,12 +119,115 @@ base = Supuestos(
 )
 df = ranking(base)
 
-tab_radar, tab_como = st.tabs(["🔎 Radar de oportunidades", "ℹ️ Cómo funciona"])
+tab_radar, tab_agente, tab_como = st.tabs(["🔎 Radar de oportunidades", "💬 Analista IA ⭐", "ℹ️ Cómo funciona"])
+
+# Las pestañas se llenan en este orden (agente y "cómo funciona" primero) para que
+# un st.stop() dentro del radar no las deje vacías.
+
+
+# ---------- analista IA (Pro) ----------
+def clave_gemini() -> bool:
+    try:  # en Streamlit Cloud la clave vive en Secrets; en local, en .env
+        if "GEMINI_API_KEY" in st.secrets:
+            os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    except Exception:  # noqa: BLE001 - no hay secrets.toml en local
+        pass
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+    return bool(os.environ.get("GEMINI_API_KEY"))
+
+
+with tab_agente:
+    st.subheader("💬 Tu analista inmobiliario")
+    st.caption("Pregúntale en lenguaje natural. Gemini busca en los avisos reales y calcula con tu crédito de la barra lateral; "
+               "las cifras salen de nuestras funciones, no del modelo.")
+    if not es_pro:
+        st.info("🔒 **El analista IA es parte de DepaRadar Pro (S/ 39/mes).** "
+                "Cambia a *Pro* en la barra lateral para probarlo (demo, sin cobro).")
+    elif not clave_gemini():
+        st.warning("Falta la clave de Gemini (`GEMINI_API_KEY`) en `.env` o en los Secrets de Streamlit Cloud.")
+    else:
+        from deparadar.llm import _modelos, cliente
+
+        st.session_state.setdefault("chat", [])
+        st.session_state.setdefault("costo_chat", 0.0)
+        sugerencias = [
+            "Búscame depas en Surco bajo US$150 mil que cuadren",
+            "¿Qué distrito tiene la mejor rentabilidad por alquiler?",
+            "¿Cuánto ofrecer por la mejor oportunidad de Miraflores?",
+        ]
+        cols = st.columns(len(sugerencias))
+        pregunta_boton = next((s for c, s in zip(cols, sugerencias) if c.button(s, use_container_width=True)), None)
+
+        for m in st.session_state["chat"]:
+            with st.chat_message("user" if m["rol"] == "user" else "assistant"):
+                st.markdown(m["texto"])
+                if m.get("meta"):
+                    st.caption(m["meta"])
+
+        usadas = sum(1 for m in st.session_state["chat"] if m["rol"] == "user")
+        pregunta = pregunta_boton or st.session_state.pop("pendiente", None)
+        if pregunta and usadas >= PREGUNTAS_PRO_MES:
+            st.warning(f"Llegaste al tope de {PREGUNTAS_PRO_MES} preguntas del mes.")
+        elif pregunta:
+            with st.chat_message("user"):
+                st.markdown(pregunta)
+            with st.chat_message("assistant"):
+                with st.spinner("Buscando en los avisos y calculando…"):
+                    try:
+                        herramientas = Herramientas(df, base, ind)
+                        historial = [{"rol": m["rol"], "texto": m["texto"]} for m in st.session_state["chat"]]
+                        texto, uso = responder(cliente(), herramientas, historial, pregunta, _modelos())
+                    except Exception as e:  # noqa: BLE001
+                        texto, uso = f"No pude responder ahora ({str(e)[:120]}). Intenta de nuevo en unos segundos.", None
+                st.markdown(texto)
+                meta = ""
+                if uso:
+                    herr = ", ".join(dict.fromkeys(uso.llamadas_herramientas)) or "ninguna"
+                    meta = (f"🔧 Herramientas: {herr} · {uso.tokens_entrada:,} + {uso.tokens_salida:,} tokens · "
+                            f"costo ≈ US$ {uso.costo_usd:.4f}")
+                    st.session_state["costo_chat"] += uso.costo_usd
+                    st.caption(meta)
+            st.session_state["chat"] += [{"rol": "user", "texto": pregunta}, {"rol": "model", "texto": texto, "meta": meta}]
+            st.rerun()  # vuelve a dibujar: la conversación queda arriba y la caja de texto abajo
+        if st.session_state["chat"]:
+            st.caption(f"Preguntas este mes: {usadas}/{PREGUNTAS_PRO_MES} · "
+                       f"costo acumulado de esta sesión ≈ US$ {st.session_state['costo_chat']:.4f}")
+            if st.button("🗑️ Nueva conversación"):
+                st.session_state["chat"], st.session_state["costo_chat"] = [], 0.0
+                st.rerun()
+        escrita = st.chat_input("Ej.: depas de 2 dormitorios en Barranco que cuadren con 30 % de inicial")
+        if escrita:
+            st.session_state["pendiente"] = escrita
+            st.rerun()
+
+with tab_como:
+    st.subheader("Cómo funciona DepaRadar")
+    st.markdown(f"""
+1. **Datos reales.** Un scraper lee avisos de venta y alquiler de departamentos en 10 distritos de Lima Moderna (InfoCasas), respetando su `robots.txt`.
+2. **Gemini lee cada aviso** y extrae lo que la ficha no dice: si es dúplex, la vista, si hay que remodelar o si el vendedor tiene urgencia.
+3. **Precio justo.** Un modelo de *machine learning* estima el precio por m² según distrito, área, dormitorios, cocheras, estado, amenidades y ubicación exacta. Error mediano fuera de muestra: **{metricas['error_mediano_venta_pct']} %** (usar solo la mediana del distrito da 13.4 %).
+4. **Alquiler estimado.** Otro modelo, entrenado con avisos de alquiler, estima cuánto se alquilaría cada depa en venta.
+5. **Flujo de caja** con las tasas hipotecarias del **BCRP** y reglas peruanas: alcabala, impuesto a la renta del alquiler (5 %) y ganancia de capital (5 %).
+6. **Analista IA (Pro).** Gemini con *function calling*: elige qué función nuestra llamar (buscar, evaluar, resumir el mercado, consultar el BCRP) y redacta la respuesta. ~US$ 0.002 por pregunta.
+
+| Embudo | Avisos |
+|---|---|
+| Avisos de venta analizados | {len(df):,} |
+| Bajo precio de mercado (15 %–40 %) | {int(df['oportunidad'].sum()):,} |
+| Bajo precio **y** cuadran con tu crédito | {int((df['oportunidad'] & df['cuadra']).sum()):,} |
+
+*DepaRadar es una herramienta de análisis, no una recomendación de inversión. Verifica siempre el inmueble, la partida registral y los números con un profesional.*
+""")
 
 with tab_radar:
     # ---------- filtros (una fila) ----------
     c1, c2, c3, c4 = st.columns([2.4, 1.3, 1, 2.3])
-    distritos = c1.multiselect("Distritos", sorted(df["distrito"].unique()), placeholder="Todos")
+    if es_pro:
+        distritos = c1.multiselect("Distritos", sorted(df["distrito"].unique()), placeholder="Todos")
+    else:
+        lista_d = sorted(df["distrito"].unique())
+        distritos = [c1.selectbox("Distrito (gratis: 1)", lista_d, index=lista_d.index("Miraflores"))]
     presupuesto = c2.number_input("Presupuesto máx. (US$)", 30_000, 3_000_000, 300_000, 10_000)
     dorms = c3.selectbox("Dormitorios", ["Todos", "1+", "2+", "3+"])
     vista = c4.segmented_control("Mostrar", ["Bajo precio", "Que cuadran", "Todos"], default="Bajo precio")
@@ -128,6 +243,10 @@ with tab_radar:
         f = f[f["oportunidad"] & f["cuadra"]]
     # Los descuentos sospechosos (>40 %, casi siempre errores del aviso) van al final
     f = f.sort_values(["revisar_aviso", "cuadra", "tir"], ascending=[True, False, False])
+    bloqueadas = 0
+    if not es_pro and len(f) > LIMITE_GRATIS:
+        bloqueadas = len(f) - LIMITE_GRATIS
+        f = f.head(LIMITE_GRATIS)
 
     # ---------- KPIs ----------
     base_filtros = df[df["precio_usd"] <= presupuesto]
@@ -184,6 +303,8 @@ with tab_radar:
                 "etiquetas": "Lo que dice el aviso",
             },
         )
+        if bloqueadas:
+            st.info(f"🔒 **{bloqueadas} oportunidades más** en {distritos[0]} y los otros 9 distritos con **Pro (S/ 39/mes)**.")
         st.caption("Selecciona una fila para ver su flujo de caja ↓")
 
     filas_sel = sel.selection.rows if sel and sel.selection else []
@@ -229,7 +350,9 @@ with tab_radar:
                    f"({descuento_inv:.1f} %). Pondrías {usd(res['inversion_inicial'])} al inicio (inicial + notaría + alcabala).")
     else:
         st.error(f"❌ **No cuadra** a {usd(precio_oferta)}. Rinde {pct(res['tir'])} al año, menos que tu costo de oportunidad.")
-    if p_max is None:
+    if not es_pro:
+        st.info("🔒 **¿Cuánto ofrecer para que cuadre?** Con Pro te decimos el precio máximo a ofrecer por este depa.")
+    elif p_max is None:
         st.warning("💡 Con este alquiler, no hay un precio razonable al que cuadre con tu crédito.")
     elif p_max < precio_oferta:
         st.info(f"💡 **Para que cuadre, ofrece como máximo {usd(p_max)}** "
@@ -258,21 +381,3 @@ with tab_radar:
     st.altair_chart(chart, use_container_width=True)
     with st.expander("Ver la tabla del flujo de caja"):
         st.dataframe(tabla_flujo.round(0), hide_index=True, use_container_width=True)
-
-with tab_como:
-    st.subheader("Cómo funciona DepaRadar")
-    st.markdown(f"""
-1. **Datos reales.** Un scraper lee avisos de venta y alquiler de departamentos en 10 distritos de Lima Moderna (InfoCasas), respetando su `robots.txt`.
-2. **Gemini lee cada aviso** y extrae lo que la ficha no dice: si es dúplex, la vista, si hay que remodelar o si el vendedor tiene urgencia.
-3. **Precio justo.** Un modelo de *machine learning* estima el precio por m² según distrito, área, dormitorios, cocheras, estado, amenidades y ubicación exacta. Error mediano fuera de muestra: **{metricas['error_mediano_venta_pct']} %** (usar solo la mediana del distrito da 13.4 %).
-4. **Alquiler estimado.** Otro modelo, entrenado con avisos de alquiler, estima cuánto se alquilaría cada depa en venta.
-5. **Flujo de caja** con las tasas hipotecarias del **BCRP** y reglas peruanas: alcabala, impuesto a la renta del alquiler (5 %) y ganancia de capital (5 %).
-
-| Embudo | Avisos |
-|---|---|
-| Avisos de venta analizados | {len(df):,} |
-| Bajo precio de mercado (15 %–40 %) | {int(df['oportunidad'].sum()):,} |
-| Bajo precio **y** cuadran con tu crédito | {int((df['oportunidad'] & df['cuadra']).sum()):,} |
-
-*DepaRadar es una herramienta de análisis, no una recomendación de inversión. Verifica siempre el inmueble, la partida registral y los números con un profesional.*
-""")
