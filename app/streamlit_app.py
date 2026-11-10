@@ -63,6 +63,11 @@ def usd_k(x: float) -> str:
     return f"US$ {x / 1000:,.0f}k" if abs(x) >= 10_000 else usd(x)
 
 
+def md(texto: str) -> str:
+    """Escapa "$" para que Streamlit no lea "US$ 95,000 ... US$ 120,000" como una fórmula LaTeX."""
+    return texto.replace("$", r"\$")
+
+
 def pct(x: float | None) -> str:
     return "—" if x is None or pd.isna(x) else f"{x * 100:.1f} %"
 
@@ -161,9 +166,9 @@ with tab_agente:
 
         for m in st.session_state["chat"]:
             with st.chat_message("user" if m["rol"] == "user" else "assistant"):
-                st.markdown(m["texto"])
+                st.markdown(md(m["texto"]))
                 if m.get("meta"):
-                    st.caption(m["meta"])
+                    st.caption(md(m["meta"]))
 
         usadas = sum(1 for m in st.session_state["chat"] if m["rol"] == "user")
         pregunta = pregunta_boton or st.session_state.pop("pendiente", None)
@@ -171,7 +176,7 @@ with tab_agente:
             st.warning(f"Llegaste al tope de {PREGUNTAS_PRO_MES} preguntas del mes.")
         elif pregunta:
             with st.chat_message("user"):
-                st.markdown(pregunta)
+                st.markdown(md(pregunta))
             with st.chat_message("assistant"):
                 with st.spinner("Buscando en los avisos y calculando…"):
                     try:
@@ -180,14 +185,14 @@ with tab_agente:
                         texto, uso = responder(cliente(), herramientas, historial, pregunta, _modelos())
                     except Exception as e:  # noqa: BLE001
                         texto, uso = f"No pude responder ahora ({str(e)[:120]}). Intenta de nuevo en unos segundos.", None
-                st.markdown(texto)
+                st.markdown(md(texto))
                 meta = ""
                 if uso:
                     herr = ", ".join(dict.fromkeys(uso.llamadas_herramientas)) or "ninguna"
                     meta = (f"🔧 Herramientas: {herr} · {uso.tokens_entrada:,} + {uso.tokens_salida:,} tokens · "
                             f"costo ≈ US$ {uso.costo_usd:.4f}")
                     st.session_state["costo_chat"] += uso.costo_usd
-                    st.caption(meta)
+                    st.caption(md(meta))
             st.session_state["chat"] += [{"rol": "user", "texto": pregunta}, {"rol": "model", "texto": texto, "meta": meta}]
             st.rerun()  # vuelve a dibujar: la conversación queda arriba y la caja de texto abajo
         if st.session_state["chat"]:
@@ -346,19 +351,19 @@ with tab_radar:
               help="Valor con apreciación, menos comisión, impuesto a la ganancia y deuda pendiente")
 
     if res["van"] > 0:
-        st.success(f"✅ **Cuadra.** Con tu crédito, esta compra rinde {pct(res['tir'])} al año, más que tu costo de oportunidad "
-                   f"({descuento_inv:.1f} %). Pondrías {usd(res['inversion_inicial'])} al inicio (inicial + notaría + alcabala).")
+        st.success(md(f"✅ **Cuadra.** Con tu crédito, esta compra rinde {pct(res['tir'])} al año, más que tu costo de oportunidad "
+                   f"({descuento_inv:.1f} %). Pondrías {usd(res['inversion_inicial'])} al inicio (inicial + notaría + alcabala)."))
     else:
-        st.error(f"❌ **No cuadra** a {usd(precio_oferta)}. Rinde {pct(res['tir'])} al año, menos que tu costo de oportunidad.")
+        st.error(md(f"❌ **No cuadra** a {usd(precio_oferta)}. Rinde {pct(res['tir'])} al año, menos que tu costo de oportunidad."))
     if not es_pro:
         st.info("🔒 **¿Cuánto ofrecer para que cuadre?** Con Pro te decimos el precio máximo a ofrecer por este depa.")
     elif p_max is None:
         st.warning("💡 Con este alquiler, no hay un precio razonable al que cuadre con tu crédito.")
     elif p_max < precio_oferta:
-        st.info(f"💡 **Para que cuadre, ofrece como máximo {usd(p_max)}** "
-                f"({(p_max / aviso['precio_usd'] - 1) * 100:+.0f} % frente al precio pedido de {usd(aviso['precio_usd'])}).")
+        st.info(md(f"💡 **Para que cuadre, ofrece como máximo {usd(p_max)}** "
+                f"({(p_max / aviso['precio_usd'] - 1) * 100:+.0f} % frente al precio pedido de {usd(aviso['precio_usd'])})."))
     else:
-        st.info(f"💡 Podrías pagar hasta **{usd(p_max)}** y seguiría cuadrando: tienes margen de seguridad.")
+        st.info(md(f"💡 Podrías pagar hasta **{usd(p_max)}** y seguiría cuadrando: tienes margen de seguridad."))
 
     # Solo los años de operación: la inversión inicial y la venta van en las tarjetas de arriba,
     # porque en el mismo eje aplastarían los flujos anuales.
