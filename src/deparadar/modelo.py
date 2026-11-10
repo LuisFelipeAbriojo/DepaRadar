@@ -22,7 +22,12 @@ from deparadar.limpieza import AMENIDADES
 
 NUMERICAS = ["log_area", "dormitorios", "banos", "cocheras", "piso", "latitud", "longitud", "preventa", *AMENIDADES]
 CATEGORICAS = ["distrito", "estado"]
-FEATURES = NUMERICAS + CATEGORICAS
+# Atributos que Gemini extrae del texto (deparadar.llm). Son opcionales: si no
+# hay caché del LLM, el modelo funciona solo con la ficha técnica.
+# OJO: "urgencia_venta" NO entra al modelo: si el modelo aprendiera que los avisos
+# "de ocasión" son más baratos, bajaría su precio justo y escondería las gangas.
+NUMERICAS_LLM = ["requiere_remodelacion", "antiguedad_anios"]
+CATEGORICAS_LLM = ["tipo_unidad", "vista"]
 
 # Un descuento mayor a esto casi siempre es un error del aviso, no una ganga
 DESCUENTO_MAX_CREIBLE = 0.40
@@ -30,10 +35,19 @@ DESCUENTO_MAX_CREIBLE = 0.40
 UMBRAL_OPORTUNIDAD = 0.15
 
 
+def _columnas(df: pd.DataFrame) -> tuple[list[str], list[str]]:
+    num = NUMERICAS + [c for c in NUMERICAS_LLM if c in df]
+    cat = CATEGORICAS + [c for c in CATEGORICAS_LLM if c in df]
+    return num, cat
+
+
 def _matriz(df: pd.DataFrame) -> pd.DataFrame:
-    X = df.assign(log_area=np.log(df["area_m2"]))[FEATURES].copy()
-    for c in CATEGORICAS:
-        X[c] = X[c].astype("category")
+    num, cat = _columnas(df)
+    X = df.assign(log_area=np.log(df["area_m2"]))[num + cat].copy()
+    for c in num:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+    for c in cat:
+        X[c] = X[c].fillna("sin_dato").astype(str).astype("category")
     return X
 
 
@@ -45,7 +59,7 @@ def _modelo(seed: int = 42) -> HistGradientBoostingRegressor:
 
 
 def _alinear_categorias(X: pd.DataFrame, ref: pd.DataFrame) -> pd.DataFrame:
-    for c in CATEGORICAS:
+    for c in ref.select_dtypes("category").columns:
         X[c] = pd.Categorical(X[c].astype(str), categories=ref[c].cat.categories)
     return X
 

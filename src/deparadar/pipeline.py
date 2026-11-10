@@ -13,6 +13,7 @@ import pandas as pd
 
 from deparadar.config import DATA_PROCESSED, DATA_RAW
 from deparadar.limpieza import limpiar
+from deparadar.llm import CACHE as ATRIBUTOS_LLM
 from deparadar.modelo import valorizar
 
 log = logging.getLogger("deparadar.pipeline")
@@ -27,6 +28,14 @@ def main() -> None:
     df = pd.read_csv(origen)
     limpio = limpiar(df)
     log.info("%s: %d avisos crudos -> %d limpios", origen.name, len(df), len(limpio))
+
+    if ATRIBUTOS_LLM.exists():
+        attrs = pd.read_csv(ATRIBUTOS_LLM).drop_duplicates("id", keep="last")
+        # El piso de la ficha manda; si falta, usamos el que Gemini leyó del texto
+        attrs = attrs.rename(columns={"piso": "piso_llm"})
+        limpio = limpio.merge(attrs, on="id", how="left")
+        limpio["piso"] = limpio["piso"].fillna(limpio.pop("piso_llm"))
+        log.info("Atributos de Gemini disponibles para %d avisos", limpio["tipo_unidad"].notna().sum())
 
     venta = limpio[limpio["operacion"] == "venta"]
     alquiler = limpio[limpio["operacion"] == "alquiler"]

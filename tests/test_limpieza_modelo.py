@@ -47,3 +47,11 @@ def test_valorizar_detecta_un_depa_bajo_precio():
     # 11 USD/m2/mes * 12 / 1875 USD/m2 ≈ 7 % bruto
     assert 5 < ganga["rentabilidad_bruta_pct"] < 9
     assert met["error_mediano_venta_pct"] < 5
+
+
+def test_anonimizar_quita_contactos_pero_no_precios():
+    from deparadar.limpieza import anonimizar
+
+    t = anonimizar("Llama al 996*120*572 o +51 987 654 321, fijo (01) 445-1234, ventas@inmo.pe, wa.me/51999888777. Precio $249000, 127 m2")
+    assert "996" not in t and "987" not in t and "445" not in t and "@" not in t and "wa.me" not in t
+    assert "$249000" in t and "127 m2" in t
