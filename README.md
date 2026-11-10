@@ -2,6 +2,8 @@
 
 > **One-liner (borrador):** Ayudamos a inversionistas inmobiliarios minoristas de Lima Moderna a encontrar departamentos que están por debajo de su precio de mercado y a saber, en un minuto, si el flujo de caja de alquilarlos es rentable, usando datos reales de avisos y las tasas del BCRP.
 
+**🔗 Demo en vivo: https://deparadar-bfoap3s6atcurghio2zl38.streamlit.app**
+
 🚧 Proyecto en construcción para el curso *Data Science con Python* (Universidad del Pacífico, 2026-II).
 
 ## 1. One-liner
@@ -20,7 +22,11 @@ _Pendiente._
 _Pendiente._
 
 ## 6. Demo
-_Pendiente:_ URL pública, cómo correrlo, 3 capturas, diagrama de arquitectura, modelos y APIs.
+**URL pública:** https://deparadar-bfoap3s6atcurghio2zl38.streamlit.app (Streamlit Community Cloud)
+
+En local: `uv run streamlit run app/streamlit_app.py`
+
+_Pendiente:_ 3 capturas, diagrama de arquitectura, modelos y APIs.
 
 ## 7. Modelo de negocio
 _Pendiente:_ quién paga, precio y costo por usuario (tokens + servidor).
