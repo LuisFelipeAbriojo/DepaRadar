@@ -3,7 +3,7 @@
 ## Quién paga
 El **inversionista minorista** de Lima: alguien con US$30–60k de ahorro que quiere comprar 1 o 2 departamentos para alquilar y no sabe si "el número cierra".
 
-**Por qué paga:** el depa mediano de Lima Moderna se pide en US$183.5k, pero solo cuadra (VAN ≥ 0 con 80 % de crédito al 6.3 % y un costo de oportunidad de 10 %) si se compra a ~US$138k. Una sola negociación guiada por DepaRadar puede ahorrarle miles de dólares; la suscripción cuesta S/ 39 al mes.
+**Por qué paga:** el depa mediano de Lima Moderna se pide en US$182.9k, pero solo cuadra (VAN ≥ 0 con 80 % de crédito al 6.3 % y un costo de oportunidad de 10 %) si se compra a ~US$127.8k. Una sola negociación guiada por DepaRadar puede ahorrarle miles de dólares; la suscripción cuesta S/ 39 al mes.
 
 ## Precio (freemium)
 | Plan | Precio | Incluye |
