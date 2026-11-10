@@ -130,7 +130,7 @@ class Herramientas:
         f = filas.iloc[0]
         s = supuestos_para(f, self.base)
         s = replace(s, precio=float(precio_oferta_usd or s.precio), alquiler_mensual=float(alquiler_mensual_usd or s.alquiler_mensual))
-        _, ind = proyectar(s)
+        _, ind = proyectar(s, con_tabla=False)
         p_max = precio_maximo(s)
         return {
             **self._ficha(f),
