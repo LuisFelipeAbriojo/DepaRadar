@@ -2,8 +2,8 @@
   "avisos_venta": 925,
   "avisos_alquiler": 844,
   "error_mediano_venta_pct": 10.2,
-  "error_mediano_alquiler_pct": 12.5,
-  "oportunidades": 120,
+  "error_mediano_alquiler_pct": 12.8,
+  "oportunidades": 130,
   "fuente": "infocasas_2026-11-10.csv",
   "fecha_datos": "2026-11-10"
 }
