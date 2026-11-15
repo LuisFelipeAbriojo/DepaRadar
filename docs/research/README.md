@@ -1,6 +1,6 @@
 # Investigación con usuarios
 
-Tres conversaciones con usuarios potenciales (noviembre de 2026), con el [guion](00-guion-entrevista.md) y la [plantilla](PLANTILLA-entrevista.md):
+Tres conversaciones con usuarios potenciales (12 y 13 de noviembre de 2026: dos presenciales y una por WhatsApp), con el [guion](00-guion-entrevista.md) y la [plantilla](PLANTILLA-entrevista.md):
 
 | # | Quién | Perfil | ¿Pagaría? |
 |---|---|---|---|

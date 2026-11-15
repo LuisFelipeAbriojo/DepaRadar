@@ -1,7 +1,7 @@
 # Entrevista 2 · AD · Corredor inmobiliario
 
-- **Fecha:** _(completar)_
-- **Medio:** _(completar: WhatsApp / llamada / presencial)_
+- **Fecha:** 12-nov-2026
+- **Medio:** presencial
 - **Perfil:** 38 años, trabaja en Miraflores, San Isidro y Surco.
 - **Cita:** con iniciales.
 - **Nota:** respuestas transcritas por el founder; la redacción se ordenó con ayuda de IA sin cambiar el contenido.

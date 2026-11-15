@@ -1,7 +1,7 @@
 # Entrevista 1 · RE · Inversionista particular
 
-- **Fecha:** _(completar)_
-- **Medio:** _(completar: WhatsApp / llamada / presencial)_
+- **Fecha:** 12-nov-2026
+- **Medio:** presencial
 - **Perfil:** 45 años, tiene dos departamentos alquilados en Surco.
 - **Cita:** con iniciales.
 - **Nota:** respuestas transcritas por el founder; la redacción se ordenó con ayuda de IA sin cambiar el contenido.
