@@ -46,3 +46,11 @@ def test_precio_maximo_deja_van_cero():
     assert p is not None and p < s.precio  # el depa mediano no cuadra: hay que negociar
     s.precio = p
     assert abs(proyectar(s)[1]["van"]) < 500
+
+
+def test_ajuste_alquiler_real_vs_publicado():
+    # Un corredor nos dijo que "una cosa es lo que piden y otra lo que paga el inquilino"
+    _, publicado = proyectar(Supuestos(precio=150_000, alquiler_mensual=800))
+    _, real = proyectar(Supuestos(precio=150_000, alquiler_mensual=800, ajuste_alquiler=-0.10))
+    assert real["rentabilidad_bruta"] == pytest.approx(0.0576)
+    assert real["tir"] < publicado["tir"] and real["flujo_mensual_anio1"] < publicado["flujo_mensual_anio1"]

@@ -38,6 +38,7 @@ class Supuestos:
     mantenimiento_propietario: float = 0.0  # mensual, si el dueño lo asume
     ir_alquiler_pct: float = 0.05
     crecimiento_alquiler: float = 0.02
+    ajuste_alquiler: float = 0.0       # alquiler real vs. publicado (p. ej. -0.05): lo pedido no siempre es lo pagado
     apreciacion_anual: float = 0.03
     costo_venta_pct: float = 0.035
     impuesto_ganancia_pct: float = 0.05
@@ -106,7 +107,8 @@ def proyectar(s: Supuestos, con_tabla: bool = True) -> tuple[pd.DataFrame | None
     inversion_inicial = s.precio * s.cuota_inicial_pct + gastos_compra
 
     t = np.arange(1, n + 1)
-    alquiler_bruto = s.alquiler_mensual * (1 + s.crecimiento_alquiler) ** (t - 1) * 12
+    alquiler_real = s.alquiler_mensual * (1 + s.ajuste_alquiler)
+    alquiler_bruto = alquiler_real * (1 + s.crecimiento_alquiler) ** (t - 1) * 12
     ingreso = alquiler_bruto * (1 - s.vacancia_meses_anio / 12)
     gastos = (ingreso * s.ir_alquiler_pct + s.precio * (s.predial_arbitrios_pct + s.seguros_pct)
               + s.mantenimiento_propietario * 12)
@@ -133,7 +135,7 @@ def proyectar(s: Supuestos, con_tabla: bool = True) -> tuple[pd.DataFrame | None
         "cuota_mensual": float(cuota),
         "alquiler_neto_mensual_anio1": float(noi[0] / 12),
         "flujo_mensual_anio1": float(flujo_neto[1] / 12),
-        "rentabilidad_bruta": float(s.alquiler_mensual * 12 / s.precio),
+        "rentabilidad_bruta": float(alquiler_real * 12 / s.precio),
         "cap_rate": float(noi[0] / s.precio),
         "cash_on_cash": float(flujo_neto[1] / inversion_inicial),
         "tir": None if tir_ is None else float(tir_),
