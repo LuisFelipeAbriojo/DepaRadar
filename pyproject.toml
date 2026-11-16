@@ -5,6 +5,7 @@ description = "Radar de departamentos bajo precio y flujo de caja de alquiler en
 requires-python = ">=3.11"
 dependencies = [
     "folium>=0.20.0",
+    "fpdf2>=2.9.0",
     "google-genai>=3.0.0",
     "pandas>=3.1.1",
     "pydantic>=2.14.3",
