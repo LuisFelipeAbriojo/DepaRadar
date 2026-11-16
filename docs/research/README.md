@@ -24,7 +24,3 @@ Las tres respuestas forman un rango: **S/ 20 por reporte · S/ 40/mes · S/ 50/m
 - Supuesto nuevo en la app: **"Alquiler real vs. publicado"**, por lo que dijo AD sobre alquileres pedidos vs. pagados.
 - Mensaje del pitch: "*barato no es lo mismo que rentable*", en palabras de JL.
 - Se confirma el informe suelto a S/ 19 como segundo producto.
-
-## Otros mensajes
-- [Mensaje para el profesor de Economía Financiera](01-mensaje-profesor.md)
-- [Mensajes para corredores e inversionistas](03-mensaje-corredores.md)
