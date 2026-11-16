@@ -54,3 +54,13 @@ def test_ajuste_alquiler_real_vs_publicado():
     _, real = proyectar(Supuestos(precio=150_000, alquiler_mensual=800, ajuste_alquiler=-0.10))
     assert real["rentabilidad_bruta"] == pytest.approx(0.0576)
     assert real["tir"] < publicado["tir"] and real["flujo_mensual_anio1"] < publicado["flujo_mensual_anio1"]
+
+
+def test_desglose_suma_el_flujo_mensual():
+    from deparadar.finanzas import desglose_mensual
+
+    s = Supuestos(precio=180_000, alquiler_mensual=800, ajuste_alquiler=-0.05)
+    filas = desglose_mensual(s)
+    assert filas[0] == ("Alquiler publicado", 800)
+    assert sum(v for _, v in filas) == pytest.approx(proyectar(s)[1]["flujo_mensual_anio1"], abs=1)
+    assert all(v < 0 for _, v in filas[1:])
