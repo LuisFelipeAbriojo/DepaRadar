@@ -32,13 +32,15 @@ Con esa misma estructura de crédito, **el 99 % de los avisos tiene flujo mensua
 
 **Cómo lo resuelve hoy:** revisa portales (Urbania, Adondevivir, InfoCasas) que muestran precios pero no dicen si un aviso está caro ni si cuadra; hace números a mano en Excel o con el simulador del banco, que solo da la cuota; o confía en un corredor, que cobra comisión sobre el precio de venta.
 
-**Conversaciones con usuarios potenciales:** notas en [`docs/research/`](docs/research/).
+**Conversaciones con usuarios potenciales:** notas completas y síntesis en [`docs/research/`](docs/research/).
 
-| # | Perfil | Estado |
-|---|---|---|
-| 1 | Profesor de Economía Financiera (experto en evaluación de inversiones) | _pendiente_ |
-| 2 | Corredor inmobiliario de Lima Moderna | _pendiente_ |
-| 3 | Inversionista minorista | _pendiente_ |
+| # | Quién | Lo que más le duele | ¿Pagaría? |
+|---|---|---|---|
+| [1](docs/research/entrevista-01-RE.md) | **RE**, inversionista, 45 años, 2 depas alquilados en Surco | *"Uno piensa que va a recibir cierta cantidad de alquiler todos los meses, pero después vienen los arreglos, el mantenimiento o se queda vacío un tiempo."* | ~S/ 20 por reporte |
+| [2](docs/research/entrevista-02-AD.md) | **AD**, corredor, 38 años, Miraflores/San Isidro/Surco | *"Una cosa es lo que piden y otra lo que realmente paga el inquilino."* | ~S/ 50 al mes |
+| [3](docs/research/entrevista-03-JL.md) | **JL**, inversionista analítico, 34 años | *"Muchos se emocionan porque ven que el alquiler puede cubrir la cuota del banco [...] No es tan sencillo como comparar alquiler contra cuota."* | ~S/ 40 al mes |
+
+**Lo que se repitió:** los tres comparan avisos a mano; el error típico es el **cálculo incompleto** (gastos, vacancia, alquiler sobreestimado, comparar solo alquiler contra cuota); la negociación real es de **3 %–10 %**, muy lejos del ~30 % que necesitaría el depa mediano para cuadrar; y la confianza en los datos es condición para pagar.
 
 ## 4. Solución e insight
 DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
@@ -53,6 +55,7 @@ DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
 **Insights:**
 - **"Barato" no es lo mismo que "rentable".** De 130 avisos bajo su precio de mercado, solo 39 cuadran con un crédito normal. El valor no está en listar avisos, sino en filtrar los que pasan los números.
 - **Gemini no mejora la precisión, pero sí la explicación.** Los atributos que lee del texto no bajan el error del modelo; lo que hacen es explicar cada oportunidad: 30 de las 130 dicen "urge vender" (señal de que el descuento es real) y 23 son dúplex o tríplex (señal de cautela, porque el área puede incluir terrazas).
+- **Lo pedido no es lo pagado.** Por lo que nos dijo un corredor, la app tiene el supuesto "alquiler real vs. publicado" para descontar la diferencia entre el alquiler de los avisos y el que realmente se cobra.
 - **La urgencia de venta queda fuera del modelo a propósito.** Si el modelo aprendiera que los avisos "de ocasión" son más baratos, les bajaría el precio justo y escondería justo las gangas.
 
 ## 5. Why now
@@ -76,7 +79,7 @@ uv run streamlit run app/streamlit_app.py
 uv run python -m deparadar.scraping --max-paginas 5   # avisos de InfoCasas → data/raw/
 uv run python -m deparadar.llm                        # Gemini lee los avisos nuevos (con caché)
 uv run python -m deparadar.pipeline                   # limpieza + modelos → data/processed/
-uv run pytest                                         # 22 tests
+uv run pytest                                         # 23 tests
 ```
 
 ### Capturas
@@ -140,6 +143,8 @@ flowchart LR
 | Pasarela de pago (~4 %) | 0.45 |
 | **Total** | **≈ 0.98** |
 
+**Validación del precio en las conversaciones:** el inversionista analítico pagaría ~S/ 40 al mes, el corredor ~S/ 50 al mes y el inversionista conservador ~S/ 20 por reporte puntual. Por eso, **Pro a S/ 39/mes** y **informe suelto a S/ 19**.
+
 Ingreso neto: S/ 39 ÷ 1.18 (IGV) ÷ 3.43 = **US$9.64** → **margen bruto ≈ 90 %**. El plan Gratis/Pro se puede probar en la app (es simulado: no se cobra). Detalle en [`docs/modelo-negocio.md`](docs/modelo-negocio.md).
 
 ## 8. Herramientas del curso
@@ -150,7 +155,7 @@ Ingreso neto: S/ 39 ÷ 1.18 (IGV) ÷ 3.43 = **US$9.64** → **margen bruto ≈ 9
 | **Mapas con Folium** | 06 | [`app/streamlit_app.py`](app/streamlit_app.py) | Ver dónde están las oportunidades que cuadran |
 | **LLMs con salidas estructuradas** | 08 | [`src/deparadar/llm.py`](src/deparadar/llm.py) | Extraer del texto lo que la ficha no dice |
 | **Agentes** (*function calling*) | 11 | [`src/deparadar/agente.py`](src/deparadar/agente.py) | Analista que busca y evalúa con nuestras funciones |
-| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 22 tests y validación cruzada del modelo |
+| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 23 tests y validación cruzada del modelo |
 
 **Por qué estas:** el problema necesita **datos reales** (scraping), **costo del dinero real** (BCRP) y **leer lenguaje natural** (Gemini). El mapa y el analista son la forma en que el usuario consume todo eso.
 

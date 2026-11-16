@@ -114,6 +114,10 @@ with st.sidebar:
         vacancia = st.slider("Meses sin inquilino al año", 0.0, 3.0, 1.0, 0.5)
         apreciacion = st.slider("Apreciación anual del inmueble (%)", 0.0, 6.0, 3.0, 0.5)
         crec_alq = st.slider("Crecimiento anual del alquiler (%)", 0.0, 6.0, 2.0, 0.5)
+        ajuste_alq = st.slider("Alquiler real vs. publicado (%)", -20, 0, 0, 1,
+                               help="El alquiler estimado sale de avisos (lo que se PIDE). Un corredor nos dijo: "
+                                    "'una cosa es lo que piden y otra lo que realmente paga el inquilino'. "
+                                    "Pon -5 % o -10 % para ser conservador.")
     if moneda == "Soles":
         st.caption("Con crédito en soles se asume tipo de cambio constante (todo se muestra en US$).")
 
@@ -121,6 +125,7 @@ base = Supuestos(
     precio=1, alquiler_mensual=1, tipo_cambio=ind["tipo_cambio"], cuota_inicial_pct=inicial / 100,
     tasa_anual=tasa / 100, plazo_anios=plazo, horizonte_anios=horizonte, tasa_descuento=descuento_inv / 100,
     vacancia_meses_anio=vacancia, apreciacion_anual=apreciacion / 100, crecimiento_alquiler=crec_alq / 100,
+    ajuste_alquiler=ajuste_alq / 100,
 )
 df = ranking(base)
 
