@@ -177,3 +177,24 @@ def precio_maximo(s: Supuestos, tol: float = 50.0) -> float | None:
         mid = (lo + hi) / 2
         lo, hi = (mid, hi) if van_a(mid) >= 0 else (lo, mid)
     return lo
+
+
+def desglose_mensual(s: Supuestos) -> list[tuple[str, float]]:
+    """A dónde se va el alquiler en el año 1, en montos mensuales (suma = flujo mensual del año 1).
+
+    Primera fila: alquiler publicado (positivo); luego cada descuento (negativo).
+    """
+    _, ind = proyectar(s, con_tabla=False)
+    alquiler_real = s.alquiler_mensual * (1 + s.ajuste_alquiler)
+    ingreso = alquiler_real * (1 - s.vacancia_meses_anio / 12)
+    filas = [
+        ("Alquiler publicado", s.alquiler_mensual),
+        ("Alquiler real vs. publicado", alquiler_real - s.alquiler_mensual),
+        ("Meses sin inquilino", ingreso - alquiler_real),
+        ("Impuesto al alquiler (5 %)", -ingreso * s.ir_alquiler_pct),
+        ("Predial y arbitrios", -s.precio * s.predial_arbitrios_pct / 12),
+        ("Seguros", -s.precio * s.seguros_pct / 12),
+        ("Mantenimiento (dueño)", -s.mantenimiento_propietario),
+        ("Cuota del crédito", -ind["cuota_mensual"] if s.plazo_anios > 0 else 0.0),
+    ]
+    return [(c, float(v)) for c, v in filas if c == "Alquiler publicado" or abs(v) >= 0.5]

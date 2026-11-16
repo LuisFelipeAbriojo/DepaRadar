@@ -24,10 +24,13 @@ from streamlit_folium import st_folium  # noqa: E402
 from deparadar import bcrp  # noqa: E402
 from deparadar.agente import Herramientas, responder  # noqa: E402
 from deparadar.config import DATA_PROCESSED  # noqa: E402
-from deparadar.finanzas import Supuestos, precio_maximo, proyectar  # noqa: E402
+from deparadar.finanzas import Supuestos, desglose_mensual, precio_maximo, proyectar  # noqa: E402
+from deparadar.informe import generar as generar_informe  # noqa: E402
 from deparadar.ranking import etiquetas, rankear, supuestos_para  # noqa: E402
 
 AZUL, ROJO, GRIS = "#2a78d6", "#e34948", "#9a9993"
+NARANJA = "#eb6834"  # resalta el depa seleccionado en el mapa
+OK, MAL = "#0ca30c", "#d03b3b"  # colores de estado (siempre con ícono y texto)
 LIMITE_GRATIS = 3          # oportunidades visibles en el plan gratis
 PREGUNTAS_PRO_MES = 100    # tope de preguntas al agente en Pro (controla el costo por usuario)
 
@@ -98,19 +101,20 @@ with st.sidebar:
     else:
         st.caption(f"Plan gratis: 1 distrito y las {LIMITE_GRATIS} mejores oportunidades. **Pro: S/ 39/mes.**")
     st.divider()
-    st.header("Tu inversión")
-    moneda = st.radio("Crédito hipotecario en", ["Dólares", "Soles"], horizontal=True)
-    tasa_bcrp = ind["tasa_hipotecaria_usd" if moneda == "Dólares" else "tasa_hipotecaria_pen"]
-    periodo = ind["periodo_tasa_hipotecaria_usd" if moneda == "Dólares" else "periodo_tasa_hipotecaria_pen"]
-    tasa = st.slider("Tasa del crédito (TEA %)", 3.0, 15.0, float(round(tasa_bcrp, 2)), 0.05,
-                     help=f"Por defecto: promedio de la banca según el BCRP ({periodo}).")
-    st.caption(f"BCRP {periodo}: {tasa_bcrp:.2f} % · Tipo de cambio {ind['tipo_cambio']:.3f}")
-    inicial = st.slider("Cuota inicial (%)", 10, 50, 20, 5)
-    plazo = st.slider("Plazo del crédito (años)", 5, 30, 20, 5)
-    descuento_inv = st.slider("Tu costo de oportunidad (%)", 4.0, 15.0, 10.0, 0.5,
-                              help="Lo que ganarías en tu mejor alternativa. Si el VAN a esta tasa es positivo, la inversión cuadra.")
-    horizonte = st.slider("Horizonte de inversión (años)", 5, 20, 10)
-    with st.expander("Más supuestos"):
+    with st.expander("🏦 Tu crédito", expanded=True):
+        moneda = st.radio("Crédito hipotecario en", ["Dólares", "Soles"], horizontal=True)
+        tasa_bcrp = ind["tasa_hipotecaria_usd" if moneda == "Dólares" else "tasa_hipotecaria_pen"]
+        periodo = ind["periodo_tasa_hipotecaria_usd" if moneda == "Dólares" else "periodo_tasa_hipotecaria_pen"]
+        tasa = st.slider("Tasa del crédito (TEA %)", 3.0, 15.0, float(round(tasa_bcrp, 2)), 0.05,
+                         help=f"Por defecto: promedio de la banca según el BCRP ({periodo}).")
+        st.caption(f"BCRP {periodo}: {tasa_bcrp:.2f} % · Tipo de cambio {ind['tipo_cambio']:.3f}")
+        inicial = st.slider("Cuota inicial (%)", 10, 50, 20, 5)
+        plazo = st.slider("Plazo del crédito (años)", 5, 30, 20, 5)
+    with st.expander("🎯 Tu objetivo"):
+        descuento_inv = st.slider("Tu costo de oportunidad (%)", 4.0, 15.0, 10.0, 0.5,
+                                  help="Lo que ganarías en tu mejor alternativa. Si el VAN a esta tasa es positivo, la inversión cuadra.")
+        horizonte = st.slider("Horizonte de inversión (años)", 5, 20, 10)
+    with st.expander("⚙️ Más supuestos"):
         vacancia = st.slider("Meses sin inquilino al año", 0.0, 3.0, 1.0, 0.5)
         apreciacion = st.slider("Apreciación anual del inmueble (%)", 0.0, 6.0, 3.0, 0.5)
         crec_alq = st.slider("Crecimiento anual del alquiler (%)", 0.0, 6.0, 2.0, 0.5)
@@ -274,12 +278,67 @@ with tab_radar:
         st.info("No hay avisos con esos filtros. Prueba ampliando el presupuesto o los distritos.")
         st.stop()
 
-    # ---------- mapa + tabla ----------
+    # ---------- top 3 de hoy (tarjetas) ----------
+    top = f[f["cuadra"] & ~f["revisar_aviso"]].head(3)
+    if len(top):
+        st.markdown("#### 🏆 Las mejores oportunidades con tu crédito")
+        cols_top = st.columns(3)
+        for col, (_, r) in zip(cols_top, top.iterrows()):
+            with col.container(border=True):
+                st.markdown(md(f"**{r['distrito']}** · {r['area_m2']:.0f} m² · {r['dormitorios']:.0f} dorm."))
+                st.markdown(md(f"### {usd(r['precio_usd'])}"))
+                st.markdown(md(f":green[**{r['descuento_pct']:.0f} % bajo mercado**] · TIR **{pct(r['tir'])}** · "
+                               f"flujo {usd(r['flujo_mensual'])}/mes"))
+                st.caption(r["etiquetas"] or "Sin alertas en el texto del aviso")
+                if st.button("Ver análisis →", key=f"top_{r['id']}", use_container_width=True):
+                    st.session_state["aviso_id"] = int(r["id"])
+
+    # ---------- tabla + mapa ----------
     col_mapa, col_tabla = st.columns([1, 1.25])
+    with col_tabla:
+        tabla = f.assign(
+            veredicto=f["cuadra"].map({True: "✅ Cuadra", False: "❌ No"}),
+            tir_pct=f["tir"] * 100,
+            precio_k=f["precio_usd"] / 1000,  # en miles: formato fijo, igual en cualquier idioma del navegador
+        )[["veredicto", "distrito", "precio_k", "area_m2", "dormitorios", "descuento_pct",
+           "rentabilidad_bruta_pct", "tir_pct", "flujo_mensual", "etiquetas", "id"]]
+        sel = st.dataframe(
+            tabla, hide_index=True, height=440, on_select="rerun", selection_mode="single-row",
+            column_order=[c for c in tabla.columns if c != "id"], key="tabla_avisos",
+            column_config={
+                "veredicto": st.column_config.TextColumn("¿Cuadra?", width="small"),
+                "distrito": st.column_config.TextColumn("Distrito", width="medium"),
+                "precio_k": st.column_config.NumberColumn("Precio", format="$%.0fk"),
+                "area_m2": st.column_config.NumberColumn("m²", format="%d", width="small"),
+                "dormitorios": st.column_config.NumberColumn("Dorm.", format="%d", width="small"),
+                "descuento_pct": st.column_config.ProgressColumn("Bajo mercado", format="%.0f %%", min_value=0, max_value=40),
+                "rentabilidad_bruta_pct": st.column_config.NumberColumn("Rent. bruta", format="%.1f %%"),
+                "tir_pct": st.column_config.NumberColumn("TIR", format="%.1f %%"),
+                "flujo_mensual": st.column_config.NumberColumn("Flujo/mes", format="$%d"),
+                "etiquetas": st.column_config.TextColumn("Lo que dice el aviso", width="large"),
+            },
+        )
+        if bloqueadas:
+            st.info(f"🔒 **{bloqueadas} oportunidades más** en {distritos[0]} y los otros 9 distritos con **Pro (S/ 39/mes)**.")
+        st.caption("Selecciona una fila (o una tarjeta) para ver su análisis ↓")
+
+    # Qué aviso se evalúa: un clic nuevo en la tabla manda; si no, la última tarjeta elegida; si no, el primero
+    filas_sel = list(sel.selection.rows) if sel and sel.selection else []
+    if filas_sel and filas_sel != st.session_state.get("sel_prev"):
+        st.session_state["aviso_id"] = int(f.iloc[filas_sel[0]]["id"])
+    st.session_state["sel_prev"] = filas_sel
+    ids = f["id"].astype(int).tolist()
+    aviso_id = st.session_state.get("aviso_id")
+    aviso = f.iloc[ids.index(aviso_id)] if aviso_id in ids else f.iloc[0]
+
     with col_mapa:
         geo = f.dropna(subset=["latitud", "longitud"])
-        m = folium.Map(location=[-12.11, -77.03], zoom_start=13, tiles="OpenStreetMap")
+        tiene_coord = pd.notna(aviso["latitud"]) and pd.notna(aviso["longitud"])
+        centro = [aviso["latitud"], aviso["longitud"]] if tiene_coord else [-12.11, -77.03]
+        m = folium.Map(location=centro, zoom_start=15 if tiene_coord else 13, tiles="OpenStreetMap")
         for _, r in geo.iterrows():
+            if int(r["id"]) == int(aviso["id"]):
+                continue
             color = AZUL if r["cuadra"] else GRIS
             folium.CircleMarker(
                 [r["latitud"], r["longitud"]], radius=7 if r["cuadra"] else 5, color="#fcfcfb", weight=2,
@@ -288,106 +347,137 @@ with tab_radar:
                          f"{r['area_m2']:.0f} m² · {r['descuento_pct']:.0f} % bajo mercado<br>"
                          f"TIR {pct(r['tir'])} · {'✅ cuadra' if r['cuadra'] else '❌ no cuadra'}"),
             ).add_to(m)
-        st_folium(m, height=460, use_container_width=True, returned_objects=[])
-        st.caption("🔵 cuadra (VAN > 0) · ⚪ bajo precio pero no cuadra con tu crédito")
-
-    with col_tabla:
-        tabla = f.assign(
-            veredicto=f["cuadra"].map({True: "✅ Cuadra", False: "❌ No"}),
-            tir_pct=f["tir"] * 100,
-        )[["veredicto", "distrito", "precio_usd", "area_m2", "dormitorios", "descuento_pct",
-           "rentabilidad_bruta_pct", "tir_pct", "flujo_mensual", "etiquetas", "id"]]
-        sel = st.dataframe(
-            tabla, hide_index=True, height=460, on_select="rerun", selection_mode="single-row",
-            column_order=[c for c in tabla.columns if c != "id"],
-            column_config={
-                "veredicto": "¿Cuadra?",
-                "distrito": "Distrito",
-                "precio_usd": st.column_config.NumberColumn("Precio", format="$%d"),
-                "area_m2": st.column_config.NumberColumn("m²", format="%d"),
-                "dormitorios": st.column_config.NumberColumn("Dorm.", format="%d"),
-                "descuento_pct": st.column_config.NumberColumn("Bajo mercado", format="%.0f %%"),
-                "rentabilidad_bruta_pct": st.column_config.NumberColumn("Rent. bruta", format="%.1f %%"),
-                "tir_pct": st.column_config.NumberColumn("TIR", format="%.1f %%"),
-                "flujo_mensual": st.column_config.NumberColumn("Flujo/mes", format="$%d"),
-                "etiquetas": "Lo que dice el aviso",
-            },
-        )
-        if bloqueadas:
-            st.info(f"🔒 **{bloqueadas} oportunidades más** en {distritos[0]} y los otros 9 distritos con **Pro (S/ 39/mes)**.")
-        st.caption("Selecciona una fila para ver su flujo de caja ↓")
-
-    filas_sel = sel.selection.rows if sel and sel.selection else []
-    aviso = f.iloc[filas_sel[0]] if filas_sel else f.iloc[0]
+        if tiene_coord:
+            folium.CircleMarker(
+                centro, radius=12, color="#0b0b0b", weight=3, fill=True, fill_color=NARANJA, fill_opacity=1,
+                tooltip=f"<b>Seleccionado:</b> {aviso['distrito']} · {usd(aviso['precio_usd'])}",
+            ).add_to(m)
+        st_folium(m, center=centro, zoom=15 if tiene_coord else 13, height=440, use_container_width=True,
+                  returned_objects=[], key=f"mapa_{int(aviso['id'])}_{es_pro}_{len(f)}")
+        st.caption("🟠 seleccionado · 🔵 cuadra (VAN > 0) · ⚪ no cuadra con tu crédito"
+                   + ("" if tiene_coord else " · este aviso no tiene ubicación exacta"))
 
     # ---------- evaluación de un aviso ----------
     st.divider()
     st.subheader(f"📊 {aviso['titulo']}")
-    st.markdown(
+    st.markdown(md(
         f"**{aviso['distrito']}** · {aviso['area_m2']:.0f} m² · {aviso['dormitorios']:.0f} dorm. · "
         f"{aviso['banos']:.0f} baños · {aviso['cocheras']:.0f} cochera(s) · {aviso['estado']} · "
         f"[Ver aviso original ↗]({aviso['url']})"
-    )
+    ))
     tags = etiquetas(aviso)
     if tags:
         st.markdown(" ".join(f":blue-badge[{t}]" for t in tags))
 
     e1, e2 = st.columns(2)
-    precio_oferta = e1.number_input("Precio que ofrecerías (US$)", 10_000, 5_000_000, int(aviso["precio_usd"]), 1_000)
+    precio_oferta = e1.number_input("Precio que ofrecerías (US$)", 10_000, 5_000_000, int(aviso["precio_usd"]), 1_000,
+                                    key=f"oferta_{int(aviso['id'])}")
     alquiler = e2.number_input("Alquiler mensual esperado (US$)", 100, 20_000, int(round(aviso["alquiler_estimado_usd"], -1)), 10,
+                               key=f"alquiler_{int(aviso['id'])}",
                                help="Por defecto: alquiler estimado por nuestro modelo con avisos de alquiler de la zona.")
     s = replace(supuestos_para(aviso, base), precio=float(precio_oferta), alquiler_mensual=float(alquiler))
     tabla_flujo, res = proyectar(s)
     p_max = precio_maximo(s)
+    desglose = desglose_mensual(s)
+
+    # Veredicto grande: se lee desde lejos al compartir pantalla (color de estado + ícono + texto)
+    cuadra = res["van"] > 0
+    if not es_pro:
+        sub = "🔒 Con Pro te decimos cuánto ofrecer como máximo para que cuadre."
+    elif p_max is None:
+        sub = "Con este alquiler no hay un precio razonable al que cuadre con tu crédito."
+    elif p_max < precio_oferta:
+        sub = (f"Para que cuadre, ofrece como máximo <b>{usd(p_max)}</b> "
+               f"({(p_max / aviso['precio_usd'] - 1) * 100:+.0f} % frente al precio pedido).")
+    else:
+        sub = f"Podrías pagar hasta <b>{usd(p_max)}</b> y seguiría cuadrando: tienes margen de seguridad."
+    color_v = OK if cuadra else MAL
+    titulo_v = "✅ CUADRA" if cuadra else "❌ NO CUADRA"
+    html_v = (
+        f'<div style="border-left:8px solid {color_v};background:rgba(127,127,127,.08);padding:14px 20px;'
+        f'border-radius:8px;margin:8px 0 16px 0">'
+        f'<div style="font-size:2rem;font-weight:800;color:{color_v};line-height:1.2">{titulo_v} '
+        f'<span style="font-size:1.15rem;font-weight:600;color:#52514e">· rinde {pct(res["tir"])} al año '
+        f'vs. tu costo de oportunidad de {descuento_inv:.1f} %</span></div>'
+        f'<div style="font-size:1.05rem;margin-top:6px">{sub}</div></div>'
+    )
+    st.markdown(html_v.replace("$", "&#36;"), unsafe_allow_html=True)
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Precio justo estimado", usd_k(aviso["precio_justo_usd"]),
               f"{aviso['descuento_pct']:.0f} % bajo mercado" if aviso["descuento_pct"] > 0 else f"{-aviso['descuento_pct']:.0f} % sobre mercado",
               delta_color="normal" if aviso["descuento_pct"] > 0 else "inverse")
     m2.metric("Pones al inicio", usd_k(res["inversion_inicial"]), help="Cuota inicial + notaría y registros + alcabala")
-    m3.metric("Cuota mensual del crédito", usd(res["cuota_mensual"]))
-    m4.metric("Flujo mensual (año 1)", usd(res["flujo_mensual_anio1"]),
-              help="Alquiler neto de vacancia, impuestos, predial y seguros, menos la cuota.")
-    m5, m6, m7, m8 = st.columns(4)
-    m5.metric("TIR de tu inversión", pct(res["tir"]))
-    m6.metric(f"VAN al {descuento_inv:.1f} %", usd_k(res["van"]))
-    m7.metric("Cash-on-cash (año 1)", pct(res["cash_on_cash"]), help="Flujo del año 1 / lo que pusiste al inicio")
-    m8.metric(f"Venta neta al año {horizonte}", usd_k(res["neto_venta"]),
-              help="Valor con apreciación, menos comisión, impuesto a la ganancia y deuda pendiente")
+    m3.metric("Flujo mensual (año 1)", usd(res["flujo_mensual_anio1"]),
+              help="Alquiler real menos vacancia, impuestos, predial, seguros y cuota.")
+    m4.metric(f"VAN al {descuento_inv:.1f} %", usd_k(res["van"]),
+              help=f"Venta neta al año {horizonte}: {usd(res['neto_venta'])} · cash-on-cash año 1: {pct(res['cash_on_cash'])}")
 
-    if res["van"] > 0:
-        st.success(md(f"✅ **Cuadra.** Con tu crédito, esta compra rinde {pct(res['tir'])} al año, más que tu costo de oportunidad "
-                   f"({descuento_inv:.1f} %). Pondrías {usd(res['inversion_inicial'])} al inicio (inicial + notaría + alcabala)."))
-    else:
-        st.error(md(f"❌ **No cuadra** a {usd(precio_oferta)}. Rinde {pct(res['tir'])} al año, menos que tu costo de oportunidad."))
-    if not es_pro:
-        st.info("🔒 **¿Cuánto ofrecer para que cuadre?** Con Pro te decimos el precio máximo a ofrecer por este depa.")
-    elif p_max is None:
-        st.warning("💡 Con este alquiler, no hay un precio razonable al que cuadre con tu crédito.")
-    elif p_max < precio_oferta:
-        st.info(md(f"💡 **Para que cuadre, ofrece como máximo {usd(p_max)}** "
-                f"({(p_max / aviso['precio_usd'] - 1) * 100:+.0f} % frente al precio pedido de {usd(aviso['precio_usd'])})."))
-    else:
-        st.info(md(f"💡 Podrías pagar hasta **{usd(p_max)}** y seguiría cuadrando: tienes margen de seguridad."))
+    # ---------- gráficos: a dónde se va el alquiler + flujo por año ----------
+    g1, g2 = st.columns(2)
+    with g1:
+        # Cascada: del alquiler publicado al flujo mensual, paso a paso (un solo eje)
+        filas_c, acum = [], 0.0
+        for concepto, v in desglose:
+            filas_c.append({"concepto": concepto, "inicio": acum, "fin": acum + v, "monto": v,
+                            "tipo": "Ingreso" if v > 0 else "Gasto o cuota"})
+            acum += v
+        filas_c.append({"concepto": "Te queda al mes", "inicio": 0.0, "fin": acum, "monto": acum,
+                        "tipo": "Te queda" if acum >= 0 else "Pones de tu bolsillo"})
+        dc = pd.DataFrame(filas_c)
+        dc["max_x"] = dc[["inicio", "fin"]].max(axis=1)
+        # Leyenda solo con los tipos que aparecen (si no, se corta)
+        colores_c = {k: v for k, v in {"Ingreso": AZUL, "Gasto o cuota": GRIS, "Te queda": AZUL,
+                                       "Pones de tu bolsillo": ROJO}.items() if k in set(dc["tipo"])}
+        orden = dc["concepto"].tolist()
+        barras = alt.Chart(dc).mark_bar(cornerRadius=3, size=20).encode(
+            y=alt.Y("concepto:N", sort=orden, title=None, axis=alt.Axis(labelLimit=220, labelOverlap=False, labelFontSize=12)),
+            x=alt.X("inicio:Q", title="US$ por mes (año 1)", axis=alt.Axis(format=",.0f", gridOpacity=0.3)),
+            x2="fin:Q",
+            color=alt.Color("tipo:N", legend=alt.Legend(title=None, orient="top"),
+                            scale=alt.Scale(domain=list(colores_c), range=list(colores_c.values()))),
+            tooltip=[alt.Tooltip("concepto:N", title="Concepto"), alt.Tooltip("monto:Q", title="US$ al mes", format=",.0f")],
+        )
+        textos = alt.Chart(dc).mark_text(align="left", dx=4, fontSize=11, color="#52514e").encode(
+            y=alt.Y("concepto:N", sort=orden), x="max_x:Q", text=alt.Text("monto:Q", format=",.0f"),
+        )
+        st.altair_chart((barras + textos).properties(height=48 * len(dc) + 40, title="¿A dónde se va tu alquiler cada mes?"),
+                        use_container_width=True)
+    with g2:
+        # Solo los años de operación: la inversión inicial y la venta van en las tarjetas,
+        # porque en el mismo eje aplastarían los flujos anuales.
+        g = tabla_flujo[tabla_flujo["anio"] > 0].assign(
+            mensual=lambda d: d["flujo_neto"] / 12,
+            tipo=lambda d: d["flujo_neto"].map(lambda v: "Te sobra dinero" if v >= 0 else "Pones de tu bolsillo"),
+        )
+        colores_f = {k: v for k, v in {"Pones de tu bolsillo": ROJO, "Te sobra dinero": AZUL}.items() if k in set(g["tipo"])}
+        chart = alt.Chart(g).mark_bar(cornerRadiusEnd=4, size=22).encode(
+            x=alt.X("anio:O", title="Año", axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("mensual:Q", title="Flujo por mes (US$)", axis=alt.Axis(format=",.0f", grid=True, gridOpacity=0.3)),
+            color=alt.Color("tipo:N", scale=alt.Scale(domain=list(colores_f), range=list(colores_f.values())),
+                            legend=alt.Legend(title=None, orient="top")),
+            tooltip=[alt.Tooltip("anio:O", title="Año"),
+                     alt.Tooltip("mensual:Q", title="Flujo por mes", format=",.0f"),
+                     alt.Tooltip("noi:Q", title="Alquiler neto del año", format=",.0f"),
+                     alt.Tooltip("servicio_deuda:Q", title="Cuotas del año", format=",.0f")],
+        ).properties(height=48 * len(dc) + 40, title="Flujo mensual promedio de cada año")
+        cero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#52514e", strokeWidth=1).encode(y="y:Q")
+        st.altair_chart(chart + cero, use_container_width=True)
 
-    # Solo los años de operación: la inversión inicial y la venta van en las tarjetas de arriba,
-    # porque en el mismo eje aplastarían los flujos anuales.
-    g = tabla_flujo[tabla_flujo["anio"] > 0].assign(
-        mensual=lambda d: d["flujo_neto"] / 12,
-        tipo=lambda d: d["flujo_neto"].map(lambda v: "Te sobra dinero" if v >= 0 else "Pones de tu bolsillo"),
-    )
-    chart = alt.Chart(g).mark_bar(cornerRadiusEnd=4, size=28).encode(
-        x=alt.X("anio:O", title="Año", axis=alt.Axis(labelAngle=0)),
-        y=alt.Y("mensual:Q", title="Flujo por mes (US$)", axis=alt.Axis(format=",.0f", grid=True, gridOpacity=0.3)),
-        color=alt.Color("tipo:N", scale=alt.Scale(domain=["Pones de tu bolsillo", "Te sobra dinero"], range=[ROJO, AZUL]),
-                        legend=alt.Legend(title=None, orient="top")),
-        tooltip=[alt.Tooltip("anio:O", title="Año"),
-                 alt.Tooltip("mensual:Q", title="Flujo por mes", format=",.0f"),
-                 alt.Tooltip("noi:Q", title="Alquiler neto del año", format=",.0f"),
-                 alt.Tooltip("servicio_deuda:Q", title="Cuotas del año", format=",.0f")],
-    ).properties(height=280, title="Flujo mensual promedio de cada año (alquiler neto − cuota)")
-    cero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#52514e", strokeWidth=1).encode(y="y:Q")
-    chart = chart + cero
-    st.altair_chart(chart, use_container_width=True)
-    with st.expander("Ver la tabla del flujo de caja"):
-        st.dataframe(tabla_flujo.round(0), hide_index=True, use_container_width=True)
+    # ---------- informe PDF ----------
+    c_pdf, c_tabla = st.columns([1, 2])
+    with c_pdf:
+        if es_pro:
+            st.download_button(
+                "📄 Descargar informe PDF", type="primary", use_container_width=True,
+                data=generar_informe(aviso, res, desglose, tabla_flujo, p_max,
+                                     f"Avisos de InfoCasas del {metricas['fecha_datos']} · tasas del BCRP ({periodo})"),
+                file_name=f"DepaRadar_{aviso['distrito'].replace(' ', '_')}_{int(aviso['id'])}.pdf",
+                mime="application/pdf",
+            )
+            st.caption("Para llevar al banco o a la negociación. Incluido en Pro · S/ 19 por informe suelto.")
+        else:
+            st.button("🔒 Informe PDF (Pro o S/ 19)", disabled=True, use_container_width=True)
+    with c_tabla:
+        with st.expander("Ver la tabla del flujo de caja"):
+            st.dataframe(tabla_flujo.round(0), hide_index=True, use_container_width=True)
