@@ -50,7 +50,9 @@ DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
 3. **Alquiler estimado:** otro modelo, entrenado con 844 avisos de alquiler, estima cuánto rentaría cada departamento en venta.
 4. **Flujo de caja peruano:** cuota hipotecaria, alcabala, notaría, vacancia, predial, impuesto a la renta del alquiler (5 %) y ganancia de capital (5 %), con las tasas del BCRP. Resultado: TIR, VAN y un veredicto de ✅ cuadra o ❌ no cuadra.
 5. **Cuánto ofrecer:** el precio máximo al que la compra todavía cuadra. Es la cifra para negociar.
-6. **Analista IA (plan Pro):** "búscame depas en Surco bajo US$150 mil que cuadren" → responde con avisos reales.
+6. **¿A dónde se va tu alquiler?:** un gráfico de cascada que parte del alquiler publicado y le va restando meses vacíos, impuestos, predial, seguros y cuota, hasta llegar a lo que realmente te queda.
+7. **Informe PDF** del análisis, para llevar al banco o a la negociación (incluido en Pro; S/ 19 suelto).
+8. **Analista IA (plan Pro):** "búscame depas en Surco bajo US$150 mil que cuadren" → responde con avisos reales.
 
 **Insights:**
 - **"Barato" no es lo mismo que "rentable".** De 130 avisos bajo su precio de mercado, solo 39 cuadran con un crédito normal. El valor no está en listar avisos, sino en filtrar los que pasan los números.
