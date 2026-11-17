@@ -7,6 +7,8 @@
 | 925 avisos de venta analizados | 130 bajo su precio de mercado | **39 que además cuadran** con un crédito al 6.3 % |
 |:---:|:---:|:---:|
 
+<sub>Con todos los avisos. En la app, con el presupuesto por defecto de hasta US$300k, el embudo es 705 → 96 → 34.</sub>
+
 Proyecto final del curso *Data Science con Python* (Universidad del Pacífico, 2026-II).
 
 ---
@@ -81,7 +83,7 @@ uv run streamlit run app/streamlit_app.py
 uv run python -m deparadar.scraping --max-paginas 5   # avisos de InfoCasas → data/raw/
 uv run python -m deparadar.llm                        # Gemini lee los avisos nuevos (con caché)
 uv run python -m deparadar.pipeline                   # limpieza + modelos → data/processed/
-uv run pytest                                         # 23 tests
+uv run pytest                                         # 26 tests
 ```
 
 ### Capturas
@@ -101,7 +103,7 @@ flowchart LR
         IC[InfoCasas<br/>avisos de venta y alquiler] -->|scraping<br/>robots.txt| RAW[(data/raw)]
         RAW --> LIM[Limpieza<br/>atípicos, duplicados,<br/>sin teléfonos]
         LIM -->|texto del aviso| GEM1[Gemini 3.5 Flash-Lite<br/>salida estructurada<br/>Pydantic]
-        GEM1 -->|tipo, vista, remodelar,<br/>urgencia| ML
+        GEM1 -->|tipo, vista, remodelar,<br/>antigüedad| ML
         LIM --> ML[Modelos HistGradientBoosting<br/>precio justo y alquiler<br/>validación cruzada]
         ML --> PROC[(data/processed<br/>venta.csv, alquiler.csv)]
     end
@@ -132,7 +134,7 @@ flowchart LR
 | Plan | Precio | Incluye |
 |---|---|---|
 | Gratis | S/ 0 | 1 distrito, las 3 mejores oportunidades, evaluador básico |
-| **Pro** | **S/ 39/mes** | 10 distritos, oportunidades ilimitadas, precio máximo a ofrecer, analista IA, alertas |
+| **Pro** | **S/ 39/mes** | 10 distritos, oportunidades ilimitadas, precio máximo a ofrecer, analista IA, informe PDF, alertas (próximamente) |
 | Informe suelto | S/ 19 | PDF del análisis de un depa |
 
 **Costo por usuario Pro al mes** (precios de Gemini 3.5 Flash-Lite: US$0.30 por millón de tokens de entrada y US$2.50 por millón de salida):
@@ -140,7 +142,7 @@ flowchart LR
 | Concepto | US$/usuario/mes |
 |---|---|
 | Gemini lee avisos nuevos (US$0.60 por dataset completo, compartido) | 0.005 |
-| Analista IA (~US$0.002 por pregunta medido en la app × 100) | 0.27 |
+| Analista IA (~US$0.0027 por pregunta × 100 preguntas) | 0.27 |
 | Servidor (con 100 usuarios, ~US$25/mes) | 0.25 |
 | Pasarela de pago (~4 %) | 0.45 |
 | **Total** | **≈ 0.98** |
@@ -154,17 +156,18 @@ Ingreso neto: S/ 39 ÷ 1.18 (IGV) ÷ 3.43 = **US$9.64** → **margen bruto ≈ 9
 |---|---|---|---|
 | **Scraping y APIs** | 03 | [`src/deparadar/scraping/infocasas.py`](src/deparadar/scraping/infocasas.py) | Datos reales de 1,893 avisos sin pagar a un proveedor |
 | **API del BCRP** | 04 | [`src/deparadar/bcrp.py`](src/deparadar/bcrp.py) | Tasas hipotecarias y tipo de cambio oficiales; series buscadas con el catálogo de metadatos, como en la sesión |
+| **Dashboards** | 05 | [`app/streamlit_app.py`](app/streamlit_app.py) | App en Streamlit con gráficos Altair: radar, cascada del alquiler y flujo anual |
 | **Mapas con Folium** | 06 | [`app/streamlit_app.py`](app/streamlit_app.py) | Ver dónde están las oportunidades que cuadran |
 | **LLMs con salidas estructuradas** | 08 | [`src/deparadar/llm.py`](src/deparadar/llm.py) | Extraer del texto lo que la ficha no dice |
 | **Agentes** (*function calling*) | 11 | [`src/deparadar/agente.py`](src/deparadar/agente.py) | Analista que busca y evalúa con nuestras funciones |
-| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 23 tests y validación cruzada del modelo |
+| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 26 tests y validación cruzada del modelo |
 
 **Por qué estas:** el problema necesita **datos reales** (scraping), **costo del dinero real** (BCRP) y **leer lenguaje natural** (Gemini). El mapa y el analista son la forma en que el usuario consume todo eso.
 
 ## 9. Qué hizo el agente
 DepaRadar se construyó con **Claude Code** (Claude Opus 5.5) como pareja de programación, trabajando con ramas `feature/*` y *pull requests*.
 
-**Lo que generó Claude Code:** la estructura del proyecto (uv, `.gitignore`, `.env.example`), el scraper y sus tests, la limpieza, los modelos con validación cruzada, el motor de flujo de caja (y su versión con numpy), el cliente del BCRP, la extracción con Gemini, el agente con *function calling*, la app de Streamlit, el script de capturas y este README.
+**Lo que generó Claude Code:** la estructura del proyecto (uv, `.gitignore`, `.env.example`), el scraper y sus tests, la limpieza, los modelos con validación cruzada, el motor de flujo de caja (y su versión con numpy), el cliente del BCRP, la extracción con Gemini, el agente con *function calling*, la app de Streamlit (gráficos de cascada y flujo, informe PDF), el script de capturas y este README.
 
 **Lo que decidió y verificó el founder:** el problema y el cliente; el alcance (Lima Moderna, compra para alquilar; remates y terrenos al roadmap); el modelo de negocio y el precio; qué herramientas usar; y la revisión y aprobación de cada *pull request*.
 
@@ -178,7 +181,7 @@ DepaRadar se construyó con **Claude Code** (Claude Opus 5.5) como pareja de pro
 ---
 
 ### Roadmap
-Alertas por correo o WhatsApp · informe PDF · más portales y ciudades (Arequipa, Trujillo) · remates judiciales y bancarios (Document AI) · evaluación de terrenos · comisiones por referir créditos hipotecarios.
+Alertas por correo o WhatsApp · más portales y ciudades (Arequipa, Trujillo) · remates judiciales y bancarios (Document AI) · evaluación de terrenos · comisiones por referir créditos hipotecarios.
 
 ### Riesgos
 - **Una sola fuente de datos:** InfoCasas. Urbania y Adondevivir bloquean el acceso automático.
