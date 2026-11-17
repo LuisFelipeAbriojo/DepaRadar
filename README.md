@@ -2,7 +2,7 @@
 
 > **Ayudamos a inversionistas inmobiliarios minoristas de Lima a encontrar departamentos que se venden bajo su precio de mercado y a saber en un minuto si comprarlos para alquilar *cuadra*, mediante avisos reales, *machine learning*, Gemini y las tasas hipotecarias del BCRP.**
 
-**🔗 Demo en vivo: https://deparadar-bfoap3s6atcurghio2zl38.streamlit.app**
+**🔗 Demo en vivo: https://deparadar.streamlit.app**
 
 | 925 avisos de venta analizados | 130 bajo su precio de mercado | **39 que además cuadran** con un crédito al 6.3 % |
 |:---:|:---:|:---:|
@@ -67,7 +67,7 @@ DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
 - **Tasas hipotecarias en ~6–7.5 %** (oct-2026): con crédito, la diferencia entre comprar bien y comprar caro decide si el flujo es positivo o negativo.
 
 ## 6. Demo
-**URL pública:** https://deparadar-bfoap3s6atcurghio2zl38.streamlit.app
+**URL pública:** https://deparadar.streamlit.app
 
 **Correrlo en local** (Python 3.11 y [uv](https://docs.astral.sh/uv/)):
 ```bash
