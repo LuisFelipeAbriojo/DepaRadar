@@ -4,10 +4,10 @@
 
 **🔗 Demo en vivo: https://deparadar.streamlit.app**
 
-| 925 avisos de venta analizados | 130 bajo su precio de mercado | **39 que además cuadran** con un crédito al 6.3 % |
+| 916 avisos de venta analizados | 123 bajo su precio de mercado | **49 que además cuadran** con un crédito al 6.3 % |
 |:---:|:---:|:---:|
 
-<sub>Con todos los avisos. En la app, con el presupuesto por defecto de hasta US$300k, el embudo es 705 → 96 → 34.</sub>
+<sub>Datos del 18-nov-2026, con todos los avisos. En la app, con el presupuesto por defecto de hasta US$300k, el embudo es 682 → 94 → 45. Los avisos se actualizan solos todos los días.</sub>
 
 Proyecto final del curso *Data Science con Python* (Universidad del Pacífico, 2026-II).
 
@@ -24,11 +24,11 @@ Proyecto final del curso *Data Science con Python* (Universidad del Pacífico, 2
 ## 3. Problema
 **Quién lo sufre:** quien tiene US$30–60k ahorrados y quiere comprar 1 o 2 departamentos para alquilar en Lima.
 
-**Cuánto le cuesta:** con los avisos reales de noviembre de 2026, el departamento mediano de Lima Moderna se pide en **US$182,852** y se alquilaría en ~US$769. Si se compra con 80 % de crédito a la tasa promedio del BCRP (6.32 %):
+**Cuánto le cuesta:** con los avisos reales de noviembre de 2026, el departamento mediano de Lima Moderna se pide en **US$188,110** y se alquilaría en ~US$793. Si se compra con 80 % de crédito a la tasa promedio del BCRP (6.32 %):
 
-- el inversionista pone **US$505 de su bolsillo cada mes** (y US$43k al inicio);
+- el inversionista pone **US$518 de su bolsillo cada mes** (y US$45k al inicio);
 - su inversión rinde **5.1 % al año**, menos que un costo de oportunidad de 10 %;
-- solo cuadra si lo compra a **US$127,800**, o sea, **30 % menos** de lo que se pide.
+- solo cuadra si lo compra a **US$131,800**, o sea, **30 % menos** de lo que se pide.
 
 Con esa misma estructura de crédito, **el 99 % de los avisos tiene flujo mensual negativo**. Pagar de más o elegir mal cuesta decenas de miles de dólares.
 
@@ -48,8 +48,8 @@ Con esa misma estructura de crédito, **el 99 % de los avisos tiene flujo mensua
 DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
 
 1. **Radar:** lee los avisos reales de venta y alquiler de 10 distritos de Lima Moderna.
-2. **Precio justo:** un modelo de *machine learning* (HistGradientBoosting) estima cuánto debería costar cada departamento según distrito, área, dormitorios, cocheras, estado, amenidades, ubicación exacta y lo que Gemini leyó del texto. Cada aviso se valora con un modelo que **nunca lo vio** (validación cruzada): error mediano de **10.2 %**, frente a 13.4 % si se usa solo la mediana del distrito.
-3. **Alquiler estimado:** otro modelo, entrenado con 844 avisos de alquiler, estima cuánto rentaría cada departamento en venta.
+2. **Precio justo:** un modelo de *machine learning* (HistGradientBoosting) estima cuánto debería costar cada departamento según distrito, área, dormitorios, cocheras, estado, amenidades, ubicación exacta y lo que Gemini leyó del texto. Cada aviso se valora con un modelo que **nunca lo vio** (validación cruzada): error mediano de **10.0 %**, frente a 12.7 % si se usa solo la mediana del distrito.
+3. **Alquiler estimado:** otro modelo, entrenado con 820 avisos de alquiler, estima cuánto rentaría cada departamento en venta.
 4. **Flujo de caja peruano:** cuota hipotecaria, alcabala, notaría, vacancia, predial, impuesto a la renta del alquiler (5 %) y ganancia de capital (5 %), con las tasas del BCRP. Resultado: TIR, VAN y un veredicto de ✅ cuadra o ❌ no cuadra.
 5. **Cuánto ofrecer:** el precio máximo al que la compra todavía cuadra. Es la cifra para negociar.
 6. **¿A dónde se va tu alquiler?:** un gráfico de cascada que parte del alquiler publicado y le va restando meses vacíos, impuestos, predial, seguros y cuota, hasta llegar a lo que realmente te queda.
@@ -57,13 +57,13 @@ DepaRadar hace en un minuto lo que a un inversionista le toma semanas:
 8. **Analista IA (plan Pro):** "búscame depas en Surco bajo US$150 mil que cuadren" → responde con avisos reales.
 
 **Insights:**
-- **"Barato" no es lo mismo que "rentable".** De 130 avisos bajo su precio de mercado, solo 39 cuadran con un crédito normal. El valor no está en listar avisos, sino en filtrar los que pasan los números.
-- **Gemini no mejora la precisión, pero sí la explicación.** Los atributos que lee del texto no bajan el error del modelo; lo que hacen es explicar cada oportunidad: 30 de las 130 dicen "urge vender" (señal de que el descuento es real) y 23 son dúplex o tríplex (señal de cautela, porque el área puede incluir terrazas).
+- **"Barato" no es lo mismo que "rentable".** De 123 avisos bajo su precio de mercado, solo 49 cuadran con un crédito normal. El valor no está en listar avisos, sino en filtrar los que pasan los números.
+- **Gemini no mejora la precisión, pero sí la explicación.** Los atributos que lee del texto no bajan el error del modelo; lo que hacen es explicar cada oportunidad: 28 de las 123 dicen "urge vender" (señal de que el descuento es real) y 28 son dúplex o tríplex (señal de cautela, porque el área puede incluir terrazas).
 - **Lo pedido no es lo pagado.** Por lo que nos dijo un corredor, la app tiene el supuesto "alquiler real vs. publicado" para descontar la diferencia entre el alquiler de los avisos y el que realmente se cobra.
 - **La urgencia de venta queda fuera del modelo a propósito.** Si el modelo aprendiera que los avisos "de ocasión" son más baratos, les bajaría el precio justo y escondería justo las gangas.
 
 ## 5. Why now
-- **Leer y estructurar 1,769 avisos cuesta US$0.60** con Gemini 3.5 Flash-Lite y salidas estructuradas (medido: 385k tokens de entrada y 193k de salida). Hace tres años eso exigía analistas o modelos varias veces más caros.
+- **Leer y estructurar 1,769 avisos cuesta US$0.60** con Gemini 3.5 Flash-Lite y salidas estructuradas (medido: 385k tokens de entrada y 193k de salida), y **actualizar a diario cuesta centavos**: el 18-nov Gemini leyó 1,064 avisos nuevos por US$0.36, porque los ya leídos están en caché. Hace tres años eso exigía analistas o modelos varias veces más caros.
 - **El BCRP publica sus series en una API abierta**: tasas hipotecarias y tipo de cambio actualizados sin pagar un proveedor de datos.
 - **Desplegar cuesta cero**: Streamlit Community Cloud sirve la app gratis, así que el costo por usuario es casi solo de tokens.
 - **Tasas hipotecarias en ~6–7.5 %** (oct-2026): con crédito, la diferencia entre comprar bien y comprar caro decide si el flujo es positivo o negativo.
@@ -78,12 +78,12 @@ cp .env.example .env              # y pon tu GEMINI_API_KEY (solo para el analis
 uv run streamlit run app/streamlit_app.py
 ```
 
-**Actualizar los datos:**
+**Actualización diaria automática:** [GitHub Actions](.github/workflows/actualizar-datos.yml) corre todos los días a las 6:00 a. m. (Lima): scraping → Gemini lee solo los avisos nuevos → limpieza y modelos → tasas del BCRP → tests → commit a `main`, y Streamlit Cloud se redespliega solo. Si el scraping trae muchos menos avisos que la vez anterior (por ejemplo, si el portal bloquea), los datos de la app no se tocan y el job falla para que se note.
+
+A mano:
 ```bash
-uv run python -m deparadar.scraping --max-paginas 5   # avisos de InfoCasas → data/raw/
-uv run python -m deparadar.llm                        # Gemini lee los avisos nuevos (con caché)
-uv run python -m deparadar.pipeline                   # limpieza + modelos → data/processed/
-uv run pytest                                         # 26 tests
+uv run python -m deparadar.actualizar   # scraping + Gemini + modelos + BCRP → data/processed/
+uv run pytest                           # 29 tests
 ```
 
 ### Capturas
@@ -154,20 +154,20 @@ Ingreso neto: S/ 39 ÷ 1.18 (IGV) ÷ 3.43 = **US$9.64** → **margen bruto ≈ 9
 ## 8. Herramientas del curso
 | Herramienta | Sesión | Dónde está | Para qué |
 |---|---|---|---|
-| **Scraping y APIs** | 03 | [`src/deparadar/scraping/infocasas.py`](src/deparadar/scraping/infocasas.py) | Datos reales de 1,893 avisos sin pagar a un proveedor |
+| **Scraping y APIs** | 03 | [`src/deparadar/scraping/infocasas.py`](src/deparadar/scraping/infocasas.py) | Datos reales de ~1,850 avisos al día sin pagar a un proveedor |
 | **API del BCRP** | 04 | [`src/deparadar/bcrp.py`](src/deparadar/bcrp.py) | Tasas hipotecarias y tipo de cambio oficiales; series buscadas con el catálogo de metadatos, como en la sesión |
 | **Dashboards** | 05 | [`app/streamlit_app.py`](app/streamlit_app.py) | App en Streamlit con gráficos Altair: radar, cascada del alquiler y flujo anual |
 | **Mapas con Folium** | 06 | [`app/streamlit_app.py`](app/streamlit_app.py) | Ver dónde están las oportunidades que cuadran |
 | **LLMs con salidas estructuradas** | 08 | [`src/deparadar/llm.py`](src/deparadar/llm.py) | Extraer del texto lo que la ficha no dice |
 | **Agentes** (*function calling*) | 11 | [`src/deparadar/agente.py`](src/deparadar/agente.py) | Analista que busca y evalúa con nuestras funciones |
-| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 26 tests y validación cruzada del modelo |
+| **Despliegue y evaluación** | 12 | Streamlit Cloud · [`tests/`](tests/) | URL pública; 29 tests, validación cruzada del modelo y actualización diaria con GitHub Actions |
 
 **Por qué estas:** el problema necesita **datos reales** (scraping), **costo del dinero real** (BCRP) y **leer lenguaje natural** (Gemini). El mapa y el analista son la forma en que el usuario consume todo eso.
 
 ## 9. Qué hizo el agente
 DepaRadar se construyó con **Claude Code** (Claude Opus 5.5) como pareja de programación, trabajando con ramas `feature/*` y *pull requests*.
 
-**Lo que generó Claude Code:** la estructura del proyecto (uv, `.gitignore`, `.env.example`), el scraper y sus tests, la limpieza, los modelos con validación cruzada, el motor de flujo de caja (y su versión con numpy), el cliente del BCRP, la extracción con Gemini, el agente con *function calling*, la app de Streamlit (gráficos de cascada y flujo, informe PDF), el script de capturas y este README.
+**Lo que generó Claude Code:** la estructura del proyecto (uv, `.gitignore`, `.env.example`), el scraper y sus tests, la limpieza, los modelos con validación cruzada, el motor de flujo de caja (y su versión con numpy), el cliente del BCRP, la extracción con Gemini, el agente con *function calling*, la app de Streamlit (gráficos de cascada y flujo, informe PDF), la actualización diaria con GitHub Actions (con su control de seguridad), el script de capturas y este README.
 
 **Lo que decidió y verificó el founder:** el problema y el cliente; el alcance (Lima Moderna, compra para alquilar; remates y terrenos al roadmap); el modelo de negocio y el precio; qué herramientas usar; y la revisión y aprobación de cada *pull request*.
 
