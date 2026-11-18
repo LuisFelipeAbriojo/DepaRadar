@@ -43,19 +43,24 @@ def cargar_bcrp() -> dict:
     return bcrp.indicadores()
 
 
+# Versión de los datos: cambia cuando la actualización diaria sube CSV nuevos.
+# Se pasa a las funciones con caché para que no sigan mostrando datos viejos.
+VERSION_DATOS = (DATA_PROCESSED / "metricas.json").stat().st_mtime
+
+
 @st.cache_data(show_spinner=False)
-def cargar_venta() -> pd.DataFrame:
+def cargar_venta(version: float = VERSION_DATOS) -> pd.DataFrame:
     return pd.read_csv(DATA_PROCESSED / "venta.csv")
 
 
 @st.cache_data(show_spinner=False)
-def cargar_metricas() -> dict:
+def cargar_metricas(version: float = VERSION_DATOS) -> dict:
     return json.loads((DATA_PROCESSED / "metricas.json").read_text(encoding="utf-8"))
 
 
 @st.cache_data(show_spinner="Calculando el flujo de caja de cada aviso…")
-def ranking(base: Supuestos) -> pd.DataFrame:
-    return rankear(cargar_venta(), base)
+def ranking(base: Supuestos, version: float = VERSION_DATOS) -> pd.DataFrame:
+    return rankear(cargar_venta(version), base)
 
 
 def usd(x: float) -> str:
@@ -76,7 +81,7 @@ def pct(x: float | None) -> str:
 
 
 ind = cargar_bcrp()
-metricas = cargar_metricas()
+metricas = cargar_metricas(VERSION_DATOS)
 
 # ---------- encabezado ----------
 st.title("🏢 DepaRadar")
@@ -131,7 +136,7 @@ base = Supuestos(
     vacancia_meses_anio=vacancia, apreciacion_anual=apreciacion / 100, crecimiento_alquiler=crec_alq / 100,
     ajuste_alquiler=ajuste_alq / 100,
 )
-df = ranking(base)
+df = ranking(base, VERSION_DATOS)
 
 tab_radar, tab_agente, tab_como = st.tabs(["🔎 Radar de oportunidades", "💬 Analista IA ⭐", "ℹ️ Cómo funciona"])
 
