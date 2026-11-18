@@ -98,5 +98,8 @@ def valorizar(venta: pd.DataFrame, alquiler: pd.DataFrame, folds: int = 5) -> tu
         "error_mediano_venta_pct": round(error_mediano_pct(venta["usd_m2"], venta["usd_m2_justo"]), 1),
         "error_mediano_alquiler_pct": round(error_mediano_pct(alquiler["usd_m2"], pd.Series(alq_oof, index=alquiler.index)), 1),
         "oportunidades": int(venta["oportunidad"].sum()),
+        # Línea base: usar solo la mediana del distrito como "precio justo"
+        "error_mediana_distrito_pct": round(error_mediano_pct(
+            venta["usd_m2"], venta.groupby("distrito")["usd_m2"].transform("median")), 1),
     }
     return venta, metricas

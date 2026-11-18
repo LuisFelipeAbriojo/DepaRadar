@@ -220,7 +220,7 @@ with tab_como:
     st.markdown(f"""
 1. **Datos reales.** Un scraper lee avisos de venta y alquiler de departamentos en 10 distritos de Lima Moderna (InfoCasas), respetando su `robots.txt`.
 2. **Gemini lee cada aviso** y extrae lo que la ficha no dice: si es dúplex, la vista, si hay que remodelar o si el vendedor tiene urgencia.
-3. **Precio justo.** Un modelo de *machine learning* estima el precio por m² según distrito, área, dormitorios, cocheras, estado, amenidades y ubicación exacta. Error mediano fuera de muestra: **{metricas['error_mediano_venta_pct']} %** (usar solo la mediana del distrito da 13.4 %).
+3. **Precio justo.** Un modelo de *machine learning* estima el precio por m² según distrito, área, dormitorios, cocheras, estado, amenidades y ubicación exacta. Error mediano fuera de muestra: **{metricas['error_mediano_venta_pct']} %** (usar solo la mediana del distrito da {metricas.get('error_mediana_distrito_pct', 13.4)} %).
 4. **Alquiler estimado.** Otro modelo, entrenado con avisos de alquiler, estima cuánto se alquilaría cada depa en venta.
 5. **Flujo de caja** con las tasas hipotecarias del **BCRP** y reglas peruanas: alcabala, impuesto a la renta del alquiler (5 %) y ganancia de capital (5 %).
 6. **Analista IA (Pro).** Gemini con *function calling*: elige qué función nuestra llamar (buscar, evaluar, resumir el mercado, consultar el BCRP) y redacta la respuesta. ~US$ 0.002 por pregunta.
