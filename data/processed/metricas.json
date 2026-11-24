@@ -1,10 +1,10 @@
 {
-  "avisos_venta": 947,
-  "avisos_alquiler": 847,
-  "error_mediano_venta_pct": 9.7,
-  "error_mediano_alquiler_pct": 11.8,
-  "oportunidades": 122,
-  "error_mediana_distrito_pct": 12.7,
-  "fuente": "infocasas_2026-11-23.csv",
-  "fecha_datos": "2026-11-23"
+  "avisos_venta": 948,
+  "avisos_alquiler": 850,
+  "error_mediano_venta_pct": 10.2,
+  "error_mediano_alquiler_pct": 12.8,
+  "oportunidades": 133,
+  "error_mediana_distrito_pct": 12.8,
+  "fuente": "infocasas_2026-11-24.csv",
+  "fecha_datos": "2026-11-24"
 }
